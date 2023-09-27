@@ -28,8 +28,7 @@ class AbstractTrainer():
         
 
     def train(self, train_data, val_data=None):
-        i = 0
-        for _ in tqdm.tqdm(range(self.n_iter_pretrain+self.n_iter)):
+        for i in tqdm.tqdm(range(self.n_iter_pretrain+self.n_iter)):
             x = sample_p_data(train_data, self.cfg["batch_size"])
             if i < self.n_iter_pretrain:
                 dic_loss = self.train_step_standard_elbo(x, i)
@@ -46,7 +45,7 @@ class AbstractTrainer():
                 x_prior = self.G(z_e_k)
                 x_posterior = self.G(z_g_k)
                 draw_samples(x_base, x_prior, x_posterior, None, i, self.logger,)
-            if i% self.cfg["val_every"] == 0 and val_data is not None:
+            if i % self.cfg["val_every"] == 0 and val_data is not None:
                 self.eval(val_data, i)
              
 
@@ -58,7 +57,6 @@ class AbstractTrainer():
             log_partition_estimate = torch.logsumexp(-energy_base_dist -base_dist_z_base_dist,0) - math.log(energy_base_dist.shape[0])
             log(step, {"log_z":log_partition_estimate.item()}, logger=self.logger, name=name)
             k=0
-            # print("HERE")
             while k* self.cfg["batch_size"]<1000:
                 x = val_data[k*self.cfg["batch_size"]:(k+1)*self.cfg["batch_size"]]
                 dic = {}
