@@ -16,7 +16,7 @@ def get_dataset_and_loader(cfg, device):
     elif dataset == "MNIST":
         transform = tfm.Compose([tfm.Resize(cfg["img_size"]), tfm.ToTensor(), tfm.Normalize((0.5), (0.5),)])
         data_train = t.stack([x[0] for x in tv.datasets.MNIST(download=True, root='{}/mnist'.format(cfg["root"]), transform=transform)]).to(device)
-        data_test = t.stack([x[0] for x in tv.datasets.MNIST(split='test', download=True, root='{}/mnist'.format(cfg["root"]), transform=transform)]).to(device)
+        data_test = t.stack([x[0] for x in tv.datasets.MNIST(train=False, download=True, root='{}/mnist'.format(cfg["root"]), transform=transform)]).to(device)
         data_valid = data_test
     elif dataset == "BINARYMNIST":
         xtrain = np.loadtxt('http://www.cs.toronto.edu/~larocheh/public/datasets/binarized_mnist/binarized_mnist_train.amat',dtype=np.float32).reshape(-1,28, 28,order='C')
