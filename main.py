@@ -42,7 +42,7 @@ elif dataset == "MNIST":
     nz, nc, ndf, ngf = 16, 1, 200, 16
     K_0, a_0, K_1, a_1 = 20, 0.4, 20, 0.1
     llhd_sigma = 0.3
-    device = t.device('cuda' if t.cuda.is_available() else 'cpu')
+    device = t.device("cuda" if t.cuda.is_available() else "cpu")
     loss_reconstruction = "gaussian"
 
 elif dataset == "BINARYMNIST":
@@ -50,7 +50,7 @@ elif dataset == "BINARYMNIST":
     nz, nc, ndf, ngf = 16, 1, 200, 16
     K_0, a_0, K_1, a_1 = 20, 0.4, 20, 0.1
     llhd_sigma = 0.3
-    device = t.device('cuda' if t.cuda.is_available() else 'cpu')
+    device = t.device("cuda" if t.cuda.is_available() else "cpu")
     loss_reconstruction = "bernoulli"
 
 elif dataset == "CIFAR_10":
@@ -139,11 +139,15 @@ if __name__ == "__main__":
 
     if args.karolina:
         dir_name = pathlib.Path(
-            pathlib.Path.home().parent.parent, "scratch/project/dd-23-57/wandb_log/LEBM"
+            pathlib.Path.home().parent.parent, "scratch/project/dd-23-57/"
         )
         cfg.update({"root": dir_name})
+        log_dir = pathlib.Path(
+            pathlib.Path.home().parent.parent, "scratch/project/dd-23-57/wandb_log/LEBM"
+        )
+        cfg.update({"log_dir": log_dir})
     else:
-        cfg.update({"root": None})
+        cfg.update({"log_dir": cfg["root"]})
 
     total_train = get_trainer(cfg)
     total_train = total_train(cfg)
