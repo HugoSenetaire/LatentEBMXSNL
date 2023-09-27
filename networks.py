@@ -2,6 +2,7 @@
 import torch
 import torch.nn as nn
 
+
 class _G_MNIST(nn.Module):
     def __init__(self, ngf, nz, nc):
         super().__init__()
@@ -71,8 +72,6 @@ class _E_SVHN(nn.Module):
       energy = self.ebm(z_squeeze)
       base_dist = torch.distributions.normal.Normal(self.mean, self.std).log_prob(z_squeeze).detach()
       base_dist = base_dist.reshape(z.shape).flatten(1).sum(1,).reshape(-1,1)
-      # print(energy.shape)
-      # print(base_dist.shape)
       return (energy-base_dist).view(-1, 1, 1, 1)
 
 

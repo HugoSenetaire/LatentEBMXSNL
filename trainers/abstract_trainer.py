@@ -1,13 +1,14 @@
 import math
 
 import torch
-import wandb
+import tqdm
 
+import wandb
 from log_utils import draw_samples, log
+from loss_reconstruction import get_loss_reconstruction
 from networks import network_getter
 from sampler import (sample_langevin_posterior, sample_langevin_prior,
                      sample_p_data)
-from loss_reconstruction import get_loss_reconstruction
 
 
 class AbstractTrainer():
@@ -28,7 +29,7 @@ class AbstractTrainer():
 
     def train(self, train_data, val_data=None):
         i = 0
-        for _ in range(self.n_iter_pretrain+self.n_iter):
+        for _ in tqdm.tqdm(range(self.n_iter_pretrain+self.n_iter)):
             x = sample_p_data(train_data, self.cfg["batch_size"])
             if i < self.n_iter_pretrain:
                 dic_loss = self.train_step_standard_elbo(x, i)
@@ -36,30 +37,32 @@ class AbstractTrainer():
                 dic_loss = self.train_step(x, i)
             if i % self.cfg["log_every"] == 0:
                 log(i, dic_loss, logger=self.logger)
-            if i % self.cfg["draw_every"] == 0:
-                z_e_0, z_g_0 = self.base_dist.sample(64), self.base_dist.sample(64)
+            if i % self.cfg["save_image_every"] == 0:
+                batch_save = min(64, x.shape[0])
+                z_e_0, z_g_0 = self.base_dist.sample((batch_save,self.cfg["nz"],1,1)), self.base_dist.sample((batch_save,self.cfg["nz"],1,1))
                 z_e_k = sample_langevin_prior(z_e_0, self.E, self.cfg["K_0"], self.cfg["a_0"])
-                z_g_k = sample_langevin_posterior(z_g_0, x, self.G, self.E, self.cfg["K_1"], self.cfg["a_1"], self.loss_reconstruction)
+                z_g_k = sample_langevin_posterior(z_g_0, x[:batch_save], self.G, self.E, self.cfg["K_1"], self.cfg["a_1"], self.loss_reconstruction)
                 x_base = self.G(z_e_0)
                 x_prior = self.G(z_e_k)
                 x_posterior = self.G(z_g_k)
-                draw_samples(x_base, x_prior, x_posterior, None, self.cfg, i,  self.logger,)
+                draw_samples(x_base, x_prior, x_posterior, None, i, self.logger,)
             if i% self.cfg["val_every"] == 0 and val_data is not None:
-                self.save(i)
+                self.eval(val_data, i)
              
 
     def eval(self, val_data, step, name="val/"):
         with torch.no_grad():
-            z_e_0 = self.base_dist.sample(self.cfg["nb_sample_partition_estimate_val"])
+            z_e_0 = self.base_dist.sample((self.cfg["nb_sample_partition_estimate_val"],self.cfg["nz"],1,1))
             energy_base_dist = self.E(z_e_0).flatten(1).sum(1)
             base_dist_z_base_dist = self.base_dist.log_prob(z_e_0.flatten(1)).sum(1)
             log_partition_estimate = torch.logsumexp(-energy_base_dist -base_dist_z_base_dist,0) - math.log(energy_base_dist.shape[0])
             log(step, {"log_z":log_partition_estimate.item()}, logger=self.logger, name=name)
             k=0
-            while k<len(val_data):
+            # print("HERE")
+            while k* self.cfg["batch_size"]<1000:
                 x = val_data[k*self.cfg["batch_size"]:(k+1)*self.cfg["batch_size"]]
                 dic = {}
-                mu_q, log_var_q = self.Encoder().chunk(2,1)
+                mu_q, log_var_q = self.Encoder(x).chunk(2,1)
                 std_q = torch.exp(0.5*log_var_q)
 
                 # Reparam trick
@@ -69,7 +72,7 @@ class AbstractTrainer():
 
 
                 # Reconstruction loss :
-                loss_g = self.loss_reconstruction(x_hat, x)
+                loss_g = self.loss_reconstruction(x_hat, x).mean(dim=0)
 
                 # KL without ebm
                 KL_loss = 0.5 * (self.log_var_p - log_var_q -1 +  (log_var_q.exp() + mu_q.pow(2))/self.log_var_p.exp())
@@ -97,7 +100,7 @@ class AbstractTrainer():
                     "energy_base_dist": energy_base_dist,
                     "approx_elbo" : -loss_total,
                 }
-                for key,value in dic_loss:
+                for key, value in dic_loss.items():
                     if key not in dic :
                         dic[key] = []
                     dic[key].append(value)
@@ -123,7 +126,7 @@ class AbstractTrainer():
         self.optE.zero_grad()
         self.optEncoder.zero_grad()
 
-        z_e_0, z_g_0 = self.base_dist.sample(), self.base_dist.sample()
+        z_e_0, z_g_0 = self.base_dist.sample((self.cfg["batch_size"],self.cfg['nz'],1,1)), self.base_dist.sample((self.cfg["batch_size"],self.cfg['nz'],1,1))
         mu_q, log_var_q = self.Encoder(x).chunk(2,1)
 
         # Reparametrization trick
@@ -133,7 +136,7 @@ class AbstractTrainer():
 
         # Reconstruction loss
         x_hat = self.G(z_q)
-        loss_g = self.loss_reconstruction(x_hat, x)
+        loss_g = self.loss_reconstruction(x_hat, x).mean(dim=0)
 
         # KL loss
         KL_loss = 0.5 * (log_var_p - log_var_q -1 +  (log_var_q.exp() + mu_q.pow(2))/log_var_p.exp())

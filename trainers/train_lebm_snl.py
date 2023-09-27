@@ -1,9 +1,14 @@
 import math
-from sampler import sample_langevin_posterior, sample_langevin_prior, sample_p_0, sample_p_data
+
+import torch
+
 from grad_clipper import grad_clipping_all_net
 from regularization import regularization
-import torch
+from sampler import (sample_langevin_posterior, sample_langevin_prior,
+                     sample_p_0, sample_p_data)
+
 from .abstract_trainer import AbstractTrainer
+
 
 class Trainer_LEBM_SNL(AbstractTrainer):
     def __init__(self, cfg, ):
@@ -14,7 +19,7 @@ class Trainer_LEBM_SNL(AbstractTrainer):
         self.optE.zero_grad()
         self.optEncoder.zero_grad()
 
-        z_e_0, z_g_0 = self.base_dist.sample(), self.base_dist.sample()
+        z_e_0, z_g_0 = self.base_dist.sample((self.cfg["batch_size"],self.cfg['nz'],1,1)), self.base_dist.sample((self.cfg["batch_size"],self.cfg['nz'],1,1))
         mu_q, log_var_q = self.Encoder(x).chunk(2,1)
         std_q = torch.exp(0.5*log_var_q)
 
@@ -25,7 +30,7 @@ class Trainer_LEBM_SNL(AbstractTrainer):
 
 
         # Reconstruction loss :
-        loss_g = self.loss_reconstruction(x_hat, x)
+        loss_g = self.loss_reconstruction(x_hat, x).mean(dim=0)
 
         # KL without ebm
         KL_loss = 0.5 * (self.log_var_p - log_var_q -1 +  (log_var_q.exp() + mu_q.pow(2))/self.log_var_p.exp())

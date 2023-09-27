@@ -27,8 +27,8 @@ class Trainer_LEBM_SNL2(AbstractTrainer):
         self.optE.zero_grad()
         self.optEncoder.zero_grad()
 
-        z_e_0 = self.base_dist.sample((self.cfg["batch_size"],))
-        z_g_0 = self.base_dist.sample((self.cfg["batch_size"],))
+        z_e_0 = self.base_dist.sample((self.cfg["batch_size"],self.cfg['nz'],1,1))
+        z_g_0 = self.base_dist.sample((self.cfg["batch_size"],self.cfg["nz"],1,1))
         mu_q, log_var_q = self.Encoder(x).chunk(2,1)
         std_q = torch.exp(0.5*log_var_q)
 
@@ -39,7 +39,7 @@ class Trainer_LEBM_SNL2(AbstractTrainer):
 
 
         # Reconstruction loss :
-        loss_g = self.loss_reconstruction(x_hat, x)
+        loss_g = self.loss_reconstruction(x_hat, x).mean(dim=0)
 
         # KL without ebm
         KL_loss = 0.5 * (self.log_var_p - log_var_q -1 +  (log_var_q.exp() + mu_q.pow(2))/self.log_var_p.exp())

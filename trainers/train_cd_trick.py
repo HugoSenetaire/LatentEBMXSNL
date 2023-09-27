@@ -16,14 +16,14 @@ class TrainerCDTrick(AbstractTrainer):
 
     def train_step(self, x, step):
 
-        z_e_0, z_g_0 = self.base_dist.sample(), self.base_dist.sample()
+        z_e_0, z_g_0 = self.base_dist.sample((self.cfg["batch_size"],self.cfg['nz'],1,1)), self.base_dist.sample((self.cfg["batch_size"],self.cfg['nz'],1,1))
         z_e_k = sample_langevin_prior(z_e_0, self.E, self.cfg["K_0"], self.cfg["a_0"])
         z_g_k = sample_langevin_posterior(z_g_0, x, self.G, self.E, self.cfg["K_1"], self.cfg["a_1"], self.loss_reconstruction)
 
 
         self.optG.zero_grad()
         x_hat = self.G(z_g_k.detach())
-        loss_g = self.loss_reconstruction(x_hat, x).mean()
+        loss_g = self.loss_reconstruction(x_hat, x).mean(dim=0).mean()
         loss_g.backward()
         grad_clipping_all_net([self.G], ["G"], [self.optG], self.logger, self.cfg, step=step)
         self.optG.step()

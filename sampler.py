@@ -3,6 +3,7 @@ import torch.nn as nn
 import torchvision as tv
 import torchvision.transforms as tfm
 
+
 def sample_p_data(data, batch_size):
     return data[t.LongTensor(batch_size).random_(0, data.size(0))].detach()
 
@@ -23,7 +24,7 @@ def sample_langevin_posterior(z, x, G, E, K_1, a_1, loss_reconstruction ):
     for i in range(K_1):
         x_hat = G(z)
         # g_log_lkhd = 1.0 / (2.0 * llhd_sigma * llhd_sigma) * mse(x_hat, x)
-        g_log_lkhd = loss_reconstruction(x_hat, x)
+        g_log_lkhd = loss_reconstruction(x_hat, x).mean(dim=0)
         grad_g = t.autograd.grad(g_log_lkhd, z)[0]
         en = E(z)
         grad_e = t.autograd.grad(en.sum(), z)[0]
