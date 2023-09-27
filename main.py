@@ -136,7 +136,6 @@ if __name__ == "__main__":
         cfg.update({"log_dir": None})
 
     print(cfg)
-    raise NotImplementedError
 
     total_train = get_trainer(cfg)
     total_train = total_train(cfg)
