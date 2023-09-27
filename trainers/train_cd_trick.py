@@ -11,8 +11,8 @@ from .abstract_trainer import AbstractTrainer
 
 
 class TrainerCDTrick(AbstractTrainer):
-    def __init__(self, cfg, logger, device):
-        super().__init__(cfg, logger, device)
+    def __init__(self, cfg,):
+        super().__init__(cfg,)
 
     def train_step(self, x, step):
 

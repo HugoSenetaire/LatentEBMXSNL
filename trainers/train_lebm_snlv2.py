@@ -1,13 +1,18 @@
 import math
-from sampler import sample_langevin_posterior, sample_langevin_prior, sample_p_0, sample_p_data
+
+import torch
+
 from grad_clipper import grad_clipping_all_net
 from regularization import regularization
-import torch
+from sampler import (sample_langevin_posterior, sample_langevin_prior,
+                     sample_p_0, sample_p_data)
+
 from .abstract_trainer import AbstractTrainer
 
+
 class Trainer_LEBM_SNL2(AbstractTrainer):
-    def __init__(self, cfg, logger, device):
-        super().__init__(cfg, logger, device)
+    def __init__(self, cfg, ):
+        super().__init__(cfg, )
 
     def train_step(self, x, step):
         """
@@ -21,9 +26,9 @@ class Trainer_LEBM_SNL2(AbstractTrainer):
         self.optG.zero_grad()
         self.optE.zero_grad()
         self.optEncoder.zero_grad()
-        x = sample_p_data()
 
-        z_e_0, z_g_0 = self.base_dist.sample(), self.base_dist.sample()
+        z_e_0 = self.base_dist.sample((self.cfg["batch_size"],))
+        z_g_0 = self.base_dist.sample((self.cfg["batch_size"],))
         mu_q, log_var_q = self.Encoder(x).chunk(2,1)
         std_q = torch.exp(0.5*log_var_q)
 
@@ -44,7 +49,6 @@ class Trainer_LEBM_SNL2(AbstractTrainer):
         entropy_posterior = torch.sum(0.5* (math.log(2*math.pi) +  log_var_q + 1), dim=1).mean()
 
         # Energy :
-        # Energy Proposal
         z_proposal = self.proposal.sample((z_e_0.shape[0], self.cfg["nz"],1,1))
         energy_approximate = self.E(z_q).flatten(1).sum(1)
         energy_proposal = self.E(z_proposal).flatten(1).sum(1)

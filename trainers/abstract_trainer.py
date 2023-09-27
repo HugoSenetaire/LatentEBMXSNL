@@ -7,6 +7,7 @@ from log_utils import draw_samples, log
 from networks import network_getter
 from sampler import (sample_langevin_posterior, sample_langevin_prior,
                      sample_p_data)
+from loss_reconstruction import get_loss_reconstruction
 
 
 class AbstractTrainer():
@@ -16,9 +17,10 @@ class AbstractTrainer():
         self.optG = torch.optim.Adam(self.G.parameters(), lr=cfg["lr_G"], betas=(cfg["beta1_G"], cfg["beta2_G"]))
         self.optE = torch.optim.Adam(self.E.parameters(), lr=cfg["lr_E"], betas=(cfg["beta1_E"], cfg["beta2_E"]))
         self.optEncoder = torch.optim.Adam(self.Encoder.parameters(), lr=cfg["lr_Encoder"], betas=(cfg["beta1_Encoder"], cfg["beta2_Encoder"]))
-        self.proposal = torch.distributions.normal.Normal(torch.tensor(cfg["proposal_mean"],device=cfg.device),torch.tensor(cfg["proposal_std"],device=cfg.device))
-        self.base_dist = torch.distributions.normal.Normal(torch.tensor(0,device=cfg.device),torch.tensor(1,device=cfg.device))
-        self.log_var_p = torch.tensor(0,device=cfg.device)
+        self.proposal = torch.distributions.normal.Normal(torch.tensor(cfg["proposal_mean"],device=cfg['device'], dtype=torch.float32),torch.tensor(cfg["proposal_std"],device=cfg['device'], dtype=torch.float32))
+        self.base_dist = torch.distributions.normal.Normal(torch.tensor(0,device=cfg['device'], dtype=torch.float32),torch.tensor(1,device=cfg['device'], dtype=torch.float32))
+        self.log_var_p = torch.tensor(0,device=cfg['device'], dtype=torch.float32)
+        self.loss_reconstruction = get_loss_reconstruction(cfg)
         self.logger = wandb.init(project="LatentEBM", config=cfg)
         self.n_iter = cfg["n_iter"]
         self.n_iter_pretrain = cfg["n_iter_pretrain"]

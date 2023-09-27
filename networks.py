@@ -100,15 +100,15 @@ class _Encoder_MNIST(nn.Module):
         x = x.flatten(1)
         return self.fc(x)
 
-def network_getter(dataset, conf):
+def network_getter(dataset, cfg):
     if dataset == "MNIST":
-        _G = _G_MNIST(conf.ngf, conf.nz, conf.nc)
-        _Encoder = _Encoder_MNIST(conf.ngf, conf.nz, conf.nc)
-        _E = _E_MNIST(conf.nz, conf.ndf)
+        _G = _G_MNIST(cfg['ngf'], cfg['nz'], cfg['nc'])
+        _Encoder = _Encoder_MNIST(cfg['ngf'], cfg['nz'], cfg['nc'])
+        _E = _E_MNIST(cfg['nz'], cfg['ndf'])
     elif dataset.startswith("SVHN"):
-        _G = _G_SVHN(conf.ngf, conf.nz, conf.nc)
-        _Encoder = _Encoder_SVHN(conf.ngf, conf.nz, conf.nc)
-        _E = _E_SVHN(conf.nz, conf.ndf)
+        _G = _G_SVHN(cfg['ngf'], cfg['nz'], cfg['nc'])
+        _Encoder = _Encoder_SVHN(cfg['ngf'], cfg['nz'], cfg['nc'])
+        _E = _E_SVHN(cfg['nz'], cfg['ndf'])
     else :
         raise NotImplementedError()
     

@@ -6,8 +6,8 @@ import torch
 from .abstract_trainer import AbstractTrainer
 
 class Trainer_LEBM_SNL(AbstractTrainer):
-    def __init__(self, cfg, logger, device):
-        super().__init__(cfg, logger, device)
+    def __init__(self, cfg, ):
+        super().__init__(cfg, )
 
     def train_step(self, x, step):
         self.optG.zero_grad()
