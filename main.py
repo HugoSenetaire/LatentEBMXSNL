@@ -14,6 +14,7 @@ n_iter = 70000
 n_iter_pretrain = 0
 val_every = 100
 nb_sample_partition_estimate_val = 256
+root = '/scratch/hhjs/data'
 
 
 if dataset == "SVHN_original":
@@ -52,6 +53,7 @@ elif dataset == "CIFAR_10" :
 
 
 cfg = {
+    "root": root,
     "trainer": trainer,
     "save_image_every": save_image_every,
     "val_every": val_every,

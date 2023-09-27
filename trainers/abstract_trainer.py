@@ -22,7 +22,7 @@ class AbstractTrainer():
         self.base_dist = torch.distributions.normal.Normal(torch.tensor(0,device=cfg['device'], dtype=torch.float32),torch.tensor(1,device=cfg['device'], dtype=torch.float32))
         self.log_var_p = torch.tensor(0,device=cfg['device'], dtype=torch.float32)
         self.loss_reconstruction = get_loss_reconstruction(cfg)
-        self.logger = wandb.init(project="LatentEBM", config=cfg)
+        self.logger = wandb.init(project="LatentEBM", config=cfg, dir=cfg["root"]+"wandb/", )
         self.n_iter = cfg["n_iter"]
         self.n_iter_pretrain = cfg["n_iter_pretrain"]
         
