@@ -1,5 +1,6 @@
 import math
 
+import torch.nn as nn
 import torch
 import tqdm
 
@@ -25,7 +26,7 @@ class AbstractTrainer():
         self.base_dist = torch.distributions.normal.Normal(torch.tensor(0,device=cfg['device'], dtype=torch.float32),torch.tensor(1,device=cfg['device'], dtype=torch.float32))
         self.log_var_p = torch.tensor(0,device=cfg['device'], dtype=torch.float32)
         self.loss_reconstruction = get_loss_reconstruction(cfg)
-        self.logger = wandb.init(project="LatentEBM", config=cfg, dir=cfg["root"]+"wandb/", )
+        self.logger = wandb.init(project="LatentEBM", config=cfg, dir=cfg["root"], )
         self.n_iter = cfg["n_iter"]
         self.n_iter_pretrain = cfg["n_iter_pretrain"]
         
@@ -47,7 +48,8 @@ class AbstractTrainer():
                 x_base = self.G(z_e_0)
                 x_prior = self.G(z_e_k)
                 x_posterior = self.G(z_g_k)
-                draw_samples(x_base, x_prior, x_posterior, None, i, self.logger,)
+                x_reconstruction = self.G(self.Encoder(x[:batch_save]).chunk(2,1)[0].reshape(-1,self.cfg["nz"],1,1))
+                draw_samples(x_base, x_prior, x_posterior, x_reconstruction, i, self.logger,)
             if i % self.cfg["val_every"] == 0 and val_data is not None:
                 self.eval(val_data, i)
              
@@ -100,6 +102,7 @@ class AbstractTrainer():
                     "energy_approximate": energy_approximate,
                     "energy_base_dist": energy_base_dist,
                     "approx_elbo" : -loss_total,
+                    "elbo_no_ebm" : -loss_g - KL_loss,
                 }
                 for key, value in dic_loss.items():
                     if key not in dic :
@@ -122,7 +125,6 @@ class AbstractTrainer():
         raise NotImplementedError
 
     def train_step_standard_elbo(self, x, step):
-        log_var_p = None
         self.optG.zero_grad()
         self.optE.zero_grad()
         self.optEncoder.zero_grad()
@@ -137,10 +139,11 @@ class AbstractTrainer():
 
         # Reconstruction loss
         x_hat = self.G(z_q)
+        mse = nn.MSELoss(reduction='sum')
         loss_g = self.loss_reconstruction(x_hat, x).mean(dim=0)
 
         # KL loss
-        KL_loss = 0.5 * (log_var_p - log_var_q -1 +  (log_var_q.exp() + mu_q.pow(2))/log_var_p.exp())
+        KL_loss = 0.5 * (self.log_var_p - log_var_q -1 +  (log_var_q.exp() + mu_q.pow(2))/self.log_var_p.exp())
         KL_loss = KL_loss.sum(dim=1).mean(dim=0)
 
         # ELBO

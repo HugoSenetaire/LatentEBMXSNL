@@ -7,11 +7,11 @@ from datasets import get_dataset_and_loader
 from trainers import get_trainer
 
 trainer = "Trainer_LEBM_SNL2"
-dataset = "SVHN"
+dataset = "MNIST"
 save_image_every = 50
 log_every = 10
 n_iter = 70000
-n_iter_pretrain = 0
+n_iter_pretrain = 5000
 val_every = 100
 nb_sample_partition_estimate_val = 256
 root = '/scratch/hhjs/data'
@@ -35,6 +35,14 @@ elif dataset == "SVHN":
 
 
 elif dataset == "MNIST":
+    img_size, batch_size = 28, 256
+    nz, nc, ndf, ngf = 16, 1, 200, 16
+    K_0, a_0, K_1, a_1 = 20, 0.4, 20, 0.1
+    llhd_sigma = 0.3
+    device = t.device('cuda' if t.cuda.is_available() else 'cpu')
+    loss_reconstruction = "gaussian"
+
+elif dataset == "BINARYMNIST":
     img_size, batch_size = 28, 256
     nz, nc, ndf, ngf = 16, 1, 200, 16
     K_0, a_0, K_1, a_1 = 20, 0.4, 20, 0.1

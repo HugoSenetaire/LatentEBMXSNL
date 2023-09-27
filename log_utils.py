@@ -20,6 +20,8 @@ def draw_samples(prior_0, langevin_prior, posterior, approximate_posterior, step
         plt.title("BaseDistribution")
         img= wandb.Image(fig, caption=f"Base Distribution {step}")
         logger.log({f"BaseDistribution.png": img},step=step)
+        plt.close()
+
     
     if langevin_prior is not None :
         fig = plt.figure(figsize=(10,10))
@@ -28,6 +30,8 @@ def draw_samples(prior_0, langevin_prior, posterior, approximate_posterior, step
         plt.title("Prior")
         img= wandb.Image(fig, caption=f"Prior {step}")
         logger.log({f"Prior.png": img},step=step)
+        plt.close()
+
     
     if posterior is not None :
         fig = plt.figure(figsize=(10,10))
@@ -36,6 +40,7 @@ def draw_samples(prior_0, langevin_prior, posterior, approximate_posterior, step
         plt.title("Posterior")
         img= wandb.Image(fig, caption=f"Posterior {step}")
         logger.log({f"Posterior.png": img},step=step)
+        plt.close()
 
     if approximate_posterior is not None :
         fig = plt.figure(figsize=(10,10))
@@ -44,6 +49,8 @@ def draw_samples(prior_0, langevin_prior, posterior, approximate_posterior, step
         plt.title("Approximate Posterior")
         img= wandb.Image(fig, caption=f"Approximate Posterior {step}")
         logger.log({f"Approximate Posterior.png": img},step=step)
+        plt.close()
+
 
 
 

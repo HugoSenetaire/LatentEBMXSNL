@@ -1,5 +1,6 @@
 import torch
-
+import torch.nn as nn
+import math
 
 class LossReconstruction():
     def __init__(self) -> None:
@@ -17,7 +18,7 @@ class GaussianLossReconstruction(LossReconstruction):
     def __call__(self, x_hat, x):
         x_hat = x_hat.flatten(1)
         x = x.flatten(1)
-        return torch.sum((x_hat-x)**2, dim=1)/ (2.0 * self.sigma * self.sigma) 
+        return torch.sum((x_hat-x)**2, dim=1)/ (2.0 * self.sigma * self.sigma)  - torch.log(self.sigma)* x.shape[1] - 0.5 * math.log(2*math.pi) * x.shape[1]
 
 class BernoulliLossReconstruction(LossReconstruction):
     def __init__(self) -> None:
@@ -26,7 +27,7 @@ class BernoulliLossReconstruction(LossReconstruction):
     def __call__(self, x_hat, x):
         x_hat = x_hat.flatten(1)
         x = x.flatten(1)
-        return torch.sum(-x*torch.log(x_hat+1e-8) - (1-x)*torch.log(1-x_hat+1e-8), dim=1)
+        return torch.sum(-x*torch.log(x_hat+1e-8) - (1-x)*torch.log(1-x_hat+1e-8), dim=1) 
     
 
 def get_loss_reconstruction(cfg):
