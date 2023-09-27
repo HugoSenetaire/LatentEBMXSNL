@@ -131,9 +131,14 @@ if __name__ == "__main__":
         dir_name = pathlib.Path(
             pathlib.Path.home().parent.parent, "scratch/project/dd-23-57/LEBM"
         )
+        dataset_dir = pathlib.Path(
+            pathlib.Path.home().parent.parent, "scratch/project/dd-23-57"
+        )
         cfg.update({"log_dir": dir_name})
+        cfg.update({"dataset_dir": dataset_dir})
     else:
         cfg.update({"log_dir": None})
+        cfg.update({"dataset_dir": pathlib.Path("data")})
 
     print(cfg)
 
