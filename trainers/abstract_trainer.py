@@ -14,6 +14,9 @@ from sampler import (sample_langevin_posterior, sample_langevin_prior,
 class AbstractTrainer():
     def __init__(self, cfg,) -> None:
         self.G, self.Encoder, self.E = network_getter(cfg["dataset"], cfg)
+        self.G.to(cfg["device"])
+        self.Encoder.to(cfg["device"])
+        self.E.to(cfg["device"])
         self.cfg = cfg
         self.optG = torch.optim.Adam(self.G.parameters(), lr=cfg["lr_G"], betas=(cfg["beta1_G"], cfg["beta2_G"]))
         self.optE = torch.optim.Adam(self.E.parameters(), lr=cfg["lr_E"], betas=(cfg["beta1_E"], cfg["beta2_E"]))
