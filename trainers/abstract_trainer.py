@@ -106,23 +106,15 @@ class AbstractTrainer:
             )
             energy_base_dist = self.E(z_e_0).flatten(1).sum(1)
             base_dist_z_base_dist = self.base_dist.log_prob(z_e_0.flatten(1)).sum(1)
-            log_partition_estimate = torch.logsumexp(
-                -energy_base_dist - base_dist_z_base_dist, 0
-            ) - math.log(energy_base_dist.shape[0])
-            log(
-                step,
-                {"log_z": log_partition_estimate.item()},
-                logger=self.logger,
-                name=name,
-            )
-            k = 0
-            while k * self.cfg["batch_size"] < 1000:
-                x = val_data[
-                    k * self.cfg["batch_size"] : (k + 1) * self.cfg["batch_size"]
-                ]
+            log_partition_estimate = torch.logsumexp(-energy_base_dist -base_dist_z_base_dist,0) - math.log(energy_base_dist.shape[0])
+            log(step, {"log_z":log_partition_estimate.item()}, logger=self.logger, name=name)
+            k=0
+            while k* self.cfg["batch_size"]<1000:
+                x = val_data[k*self.cfg["batch_size"]:(k+1)*self.cfg["batch_size"]]
+                x_expanded = x.unsqueeze(0).expand(self.cfg["multiple_sample_val"],x.shape[0],self.cfg["nc"],self.cfg["img_size"],self.cfg["img_size"]).flatten(1,2)
                 dic = {}
-                mu_q, log_var_q = self.Encoder(x).chunk(2, 1)
-                std_q = torch.exp(0.5 * log_var_q)
+                mu_q, log_var_q = self.Encoder(x_expanded).chunk(2,1)
+                std_q = torch.exp(0.5*log_var_q)
 
                 # Reparam trick
                 eps = torch.randn_like(mu_q)
@@ -130,7 +122,7 @@ class AbstractTrainer:
                 x_hat = self.G(z_q)
 
                 # Reconstruction loss :
-                loss_g = self.loss_reconstruction(x_hat, x).mean(dim=0)
+                loss_g = self.loss_reconstruction(x_hat, x_expanded).mean(dim=0)
 
                 # KL without ebm
                 KL_loss = 0.5 * (
@@ -141,6 +133,7 @@ class AbstractTrainer:
                 )
                 KL_loss = KL_loss.sum(dim=1)
 
+
                 # Entropy posterior
                 entropy_posterior = torch.sum(
                     0.5 * (math.log(2 * math.pi) + log_var_q + 1), dim=1
@@ -149,6 +142,9 @@ class AbstractTrainer:
                 # Energy :
                 energy_approximate = self.E(z_q).flatten(1).sum(1)
                 base_dist_z_approximate = self.base_dist.log_prob(z_q.flatten(1)).sum(1)
+                posterior_distribution = torch.distributions.normal.Normal(mu_q, std_q)
+                log_q_z = posterior_distribution.log_prob(z_q.flatten(1)).sum(1)
+
 
                 loss_ebm = energy_approximate + log_partition_estimate.exp() - 1
                 loss_total = loss_g + KL_loss + loss_ebm

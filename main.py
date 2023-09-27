@@ -9,7 +9,7 @@ import torchvision.transforms as tfm
 from datasets import get_dataset_and_loader
 from trainers import get_trainer
 
-trainer = "Trainer_LEBM_SNL2"
+trainer = "TrainerCD"
 dataset = "MNIST"
 save_image_every = 50
 log_every = 10
@@ -17,6 +17,7 @@ n_iter = 70000
 n_iter_pretrain = 5000
 val_every = 100
 nb_sample_partition_estimate_val = 256
+multiple_sample_val = 10
 root = "/scratch/hhjs/data"
 
 
@@ -67,6 +68,7 @@ cfg = {
     "trainer": trainer,
     "save_image_every": save_image_every,
     "val_every": val_every,
+    "multiple_sample_val": multiple_sample_val,
     "nb_sample_partition_estimate_val": nb_sample_partition_estimate_val,
     "n_iter_pretrain": n_iter_pretrain,
     "log_every": log_every,
@@ -147,7 +149,8 @@ if __name__ == "__main__":
         )
         cfg.update({"log_dir": log_dir})
     else:
-        cfg.update({"log_dir": cfg["root"]})
+        cfg.update({"root": "/scratch/hhjs/data"})
+        cfg.update({"log_dir": "/scratch/hhjs/logs"})
 
     total_train = get_trainer(cfg)
     total_train = total_train(cfg)
