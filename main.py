@@ -91,15 +91,15 @@ cfg = {
 
 
 cfg_clipping = {
-    "E_clip_grad_type": 'norm',
+    "E_clip_grad_type": "norm",
     "E_clip_grad_value": 1.0,
     "E_nb_sigma": 3,
     "E_replace_nan": False,
-    "G_clip_grad_type": 'norm',
+    "G_clip_grad_type": "norm",
     "G_clip_grad_value": 1.0,
     "G_nb_sigma": 3,
     "G_replace_nan": False,
-    "Encoder_clip_grad_type": 'norm',
+    "Encoder_clip_grad_type": "norm",
     "Encoder_clip_grad_value": 1.0,
     "Encoder_nb_sigma": 3,
     "Encoder_replace_nan": False,
@@ -140,7 +140,11 @@ cfg.update(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="A simple script with argparse")
     parser.add_argument("-k", "--karolina", help="bool", action="store_true")
+    parser.add_argument(
+        "-e", "--entropy", help="coef of entropy", type=float, default=0.0
+    )
     args = parser.parse_args()
+    cfg.update({"regularize_entropy_posterior": args.entropy})
 
     if args.karolina:
         dir_name = pathlib.Path(
@@ -154,7 +158,9 @@ if __name__ == "__main__":
     else:
         cfg.update({"root": "/scratch/hhjs/data"})
         cfg.update({"log_dir": "/scratch/hhjs/logs"})
-    data_train, data_valid, data_test, transform_back_name = get_dataset_and_loader(cfg, device)
+    data_train, data_valid, data_test, transform_back_name = get_dataset_and_loader(
+        cfg, device
+    )
     cfg.update({"transform_back_name": transform_back_name})
 
     total_train = get_trainer(cfg)
