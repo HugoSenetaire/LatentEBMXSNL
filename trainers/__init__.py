@@ -4,7 +4,6 @@ from .train_cd import TrainerCD
 from .train_lebm_snl import Trainer_LEBM_SNL
 from .train_lebm_snlv2 import Trainer_LEBM_SNL2
 
-
 def get_trainer(cfg):
     trainer_name = cfg["trainer"]
     if trainer_name == "TrainerCD":

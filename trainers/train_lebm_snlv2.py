@@ -15,20 +15,11 @@ class Trainer_LEBM_SNL2(AbstractTrainer):
         super().__init__(cfg, )
 
     def train_step(self, x, step):
-        """
-        Here in the case where the base distribution is actually the proposal, then
-        i can just calculate the entropy of the posterior, then I get loss ebm on the same level, hopefully
-        """
-
-        fix_encoder = self.cfg["fix_encoder"]
-        fix_decoder= self.cfg["fix_decoder"]
-
         self.optG.zero_grad()
         self.optE.zero_grad()
         self.optEncoder.zero_grad()
 
-        z_e_0 = self.base_dist.sample((self.cfg["batch_size"],self.cfg['nz'],1,1))
-        z_g_0 = self.base_dist.sample((self.cfg["batch_size"],self.cfg["nz"],1,1))
+        z_e_0, z_g_0 = self.base_dist.sample((self.cfg["batch_size"],self.cfg['nz'],1,1)), self.base_dist.sample((self.cfg["batch_size"],self.cfg['nz'],1,1))
         mu_q, log_var_q = self.Encoder(x).chunk(2,1)
         std_q = torch.exp(0.5*log_var_q)
 
@@ -49,53 +40,47 @@ class Trainer_LEBM_SNL2(AbstractTrainer):
         entropy_posterior = torch.sum(0.5* (math.log(2*math.pi) +  log_var_q + 1), dim=1).mean()
 
         # Energy :
-        z_proposal = self.proposal.sample((z_e_0.shape[0], self.cfg["nz"],1,1))
-        energy_approximate = self.E(z_q).flatten(1).sum(1)
-        energy_proposal = self.E(z_proposal).flatten(1).sum(1)
-        energy_prior = self.E(z_e_0).flatten(1).sum(1)
+        energy_approximate = self.E(z_q.detach()).flatten(1).sum(1)
+        energy_base_dist = self.E(z_e_0).flatten(1).sum(1)
 
-        base_dist_z_proposal = self.base_dist.log_prob(z_proposal.flatten(1)).sum(1)
-        base_dist_z_posterior = self.base_dist.log_prob(z_q.flatten(1)).sum(1)
+        base_dist_z_approximate = self.base_dist.log_prob(z_q.flatten(1)).sum(1)
         base_dist_z_base_dist = self.base_dist.log_prob(z_e_0.flatten(1)).sum(1)
-        proposal_z_proposal = self.proposal.log_prob(z_proposal.flatten(1)).sum(1)
-        proposal_z_posterior = self.proposal.log_prob(z_q.flatten(1)).sum(1)
-        proposal_z_base_dist = self.proposal.log_prob(z_e_0.flatten(1)).sum(1)
 
 
-        log_partition_estimate = torch.logsumexp(-energy_proposal - proposal_z_proposal,0) - math.log(energy_proposal.shape[0])
-        loss_ebm = energy_approximate.mean() + log_partition_estimate.exp() -1
-        # loss_ebm =  energy_approximate.mean() + log_partition_estimate
+        # log_partition_estimate = torch.logsumexp(-energy_base_dist -base_dist_z_base_dist,0) - math.log(energy_base_dist.shape[0]) # INCORRECT VERSION FROM BEFORE
+        log_partition_estimate = torch.logsumexp(-energy_base_dist,0) - math.log(energy_base_dist.shape[0])
+        loss_ebm = (energy_approximate).mean() + log_partition_estimate.exp() -1
+        # loss_ebm = (energy_approximate - base_dist_approximate).mean() + log_partition_estimate
+
+
 
         loss_total = loss_g + KL_loss + loss_ebm
-        dic_loss = regularization(self.E, z_q, z_e_0, energy_approximate, energy_proposal, self.cfg, self.logger, step)
+        dic_loss = regularization(self.E, z_q, z_e_0, energy_approximate, energy_base_dist, self.cfg, self.logger, step)
         for key, item in dic_loss.items():
             loss_total += item
         loss_total.backward()
         grad_clipping_all_net([self.E,self.G,self.Encoder], ["E", "G", "Encoder"], [self.optE, self.optG, self.optEncoder,], self.logger, self.cfg, step)
 
         dic_loss = {
-            "loss_g": loss_g.item(),
-            "entropy_posterior": entropy_posterior.item(),
+            "loss_g":loss_g.item(),
+            "entropy_posterior":entropy_posterior.item(),
             "loss_ebm": loss_ebm.item(),
-            "log_Z": log_partition_estimate.item(),
+            "base_dist_z_approximate": base_dist_z_approximate.mean().item(),
+            "base_dist_z_base_dist" : base_dist_z_base_dist.mean().item(),
+            "log_Z":log_partition_estimate.item(),
             "KL_loss_no_ebm": KL_loss.item(),
             "energy_approximate": energy_approximate.mean().item(),
-            "energy_proposal" : energy_proposal.mean().item(),
-            "energy_prior": energy_prior.mean().item(),
-            "base_dist_z_proposal": base_dist_z_proposal.mean().item(),
-            "base_dist_z_posterior":base_dist_z_posterior.mean().item(),
-            "base_dist_z_base_dist": base_dist_z_base_dist.mean().item(),
-            "proposal_z_proposal": proposal_z_proposal.mean().item(),
-            "proposal_z_posterior":proposal_z_posterior.mean().item(),
-            "proposal_z_base_dist": proposal_z_base_dist.mean().item(),
+            "energy_base_dist": energy_base_dist.mean().item(),
             "approx_elbo" : -loss_total.item(),
+            "elbo_no_ebm" : -loss_g.item() - KL_loss.item(),
+            "mu_q": mu_q.flatten(1).mean(1).mean().item(),
+            "log_var_q": log_var_q.flatten(1).sum(1).mean().item(),
         }
 
+
         self.optE.step()
-        if not fix_decoder :
+        if not self.cfg["fix_decoder"] :
             self.optG.step()
-        if not fix_encoder :
+        if not self.cfg["fix_encoder"] :
             self.optEncoder.step()
-
-
         return dic_loss

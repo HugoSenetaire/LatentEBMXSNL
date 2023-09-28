@@ -9,15 +9,18 @@ import torchvision.transforms as tfm
 from datasets import get_dataset_and_loader
 from trainers import get_trainer
 
-trainer = "Trainer_LEBM_SNL"
+trainer = "Trainer_LEBM_SNL2"
 dataset = "BINARYMNIST"
-save_image_every = 50
+save_image_every = 500
 log_every = 10
-n_iter = 70000
-n_iter_pretrain = 1000
-val_every = 100
+n_iter = 100000
+n_iter_pretrain = 0
+val_every = 200
 nb_sample_partition_estimate_val = 20000
-multiple_sample_val = 10
+multiple_sample_val = 100
+batch_size_val = 64
+multiple_sample_val_SNIS = 1000
+test_every = 5000
 root = "/scratch/hhjs/data"
 
 
@@ -41,7 +44,7 @@ elif dataset == "SVHN":
 elif dataset == "MNIST":
     img_size, batch_size = 28, 256
     nz, nc, ndf, ngf = 16, 1, 200, 16
-    K_0, a_0, K_1, a_1 = 20, 0.4, 20, 0.1
+    K_0, a_0, K_1, a_1 = 40, 0.4, 40, 0.1
     llhd_sigma = 0.3
     device = t.device("cuda" if t.cuda.is_available() else "cpu")
     loss_reconstruction = "gaussian"
@@ -49,7 +52,7 @@ elif dataset == "MNIST":
 elif dataset == "BINARYMNIST":
     img_size, batch_size = 28, 256
     nz, nc, ndf, ngf = 16, 1, 200, 16
-    K_0, a_0, K_1, a_1 = 20, 0.4, 20, 0.1
+    K_0, a_0, K_1, a_1 = 40, 0.4, 20, 0.1
     llhd_sigma = 0.3
     device = t.device("cuda" if t.cuda.is_available() else "cpu")
     loss_reconstruction = "bernoulli"
@@ -67,14 +70,17 @@ cfg = {
     "root": root,
     "trainer": trainer,
     "save_image_every": save_image_every,
+    "test_every":test_every,
     "val_every": val_every,
     "multiple_sample_val": multiple_sample_val,
+    "multiple_sample_val_SNIS": multiple_sample_val_SNIS,
     "nb_sample_partition_estimate_val": nb_sample_partition_estimate_val,
     "n_iter_pretrain": n_iter_pretrain,
     "log_every": log_every,
     "dataset": dataset,
     "img_size": img_size,
     "batch_size": batch_size,
+    "batch_size_val": batch_size_val,
     "nz": nz,
     "nc": nc,
     "ndf": ndf,

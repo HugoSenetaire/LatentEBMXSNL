@@ -65,7 +65,7 @@ class _E_MNIST(nn.Module):
         super().__init__()
         self.ebm = nn.Sequential(nn.Linear(nz, ndf), nn.LeakyReLU(0.2),
             nn.Linear(ndf, ndf), nn.LeakyReLU(0.2),
-            nn.Linear(ndf, ndf), nn.LeakyReLU(0.2),
+            # nn.Linear(ndf, ndf), nn.LeakyReLU(0.2),
             nn.Linear(ndf, 1, bias=False))
         self.log_partition = nn.Parameter(torch.tensor(0.,),requires_grad=True)
     def forward(self, z):

@@ -47,13 +47,14 @@ class Trainer_LEBM_SNL(AbstractTrainer):
         base_dist_z_base_dist = self.base_dist.log_prob(z_e_0.flatten(1)).sum(1)
 
 
-        log_partition_estimate = torch.logsumexp(-energy_base_dist -base_dist_z_base_dist,0) - math.log(energy_base_dist.shape[0])
-        loss_ebm = (energy_approximate - base_dist_z_approximate).mean() + log_partition_estimate.exp() -1
+        # log_partition_estimate = torch.logsumexp(-energy_base_dist -base_dist_z_base_dist,0) - math.log(energy_base_dist.shape[0]) # INCORRECT VERSION FROM BEFORE
+        log_partition_estimate = torch.logsumexp(-energy_base_dist,0) - math.log(energy_base_dist.shape[0])
+        loss_ebm = (energy_approximate).mean() + log_partition_estimate.exp() -1
         # loss_ebm = (energy_approximate - base_dist_approximate).mean() + log_partition_estimate
 
 
 
-        loss_total = loss_g - entropy_posterior + loss_ebm
+        loss_total = loss_g + KL_loss + loss_ebm
         dic_loss = regularization(self.E, z_q, z_e_0, energy_approximate, energy_base_dist, self.cfg, self.logger, step)
         for key, item in dic_loss.items():
             loss_total += item
@@ -71,6 +72,9 @@ class Trainer_LEBM_SNL(AbstractTrainer):
             "energy_approximate": energy_approximate.mean().item(),
             "energy_base_dist": energy_base_dist.mean().item(),
             "approx_elbo" : -loss_total.item(),
+            "elbo_no_ebm" : -loss_g.item() - KL_loss.item(),
+            "mu_q": mu_q.flatten(1).mean(1).mean().item(),
+            "log_var_q": log_var_q.flatten(1).sum(1).mean().item(),
         }
 
 
