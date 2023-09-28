@@ -11,11 +11,20 @@ def log(step, dic_loss, logger, name=""):
     logger.log({name+key:value},step=step)
 
 
-def draw_samples(prior_0, langevin_prior, posterior, approximate_posterior, step, logger):
+transform_back_m1_1 = lambda x: (x)/2+0.5
+transform_back_0_1 = lambda x: x
 
+dic = {
+   "m1_1": transform_back_m1_1,
+    "0_1": transform_back_0_1,
+}
+
+def draw_samples(prior_0, langevin_prior, posterior, approximate_posterior, step, logger, transform_back_name="0_1"):
+
+    transform_back = dic[transform_back_name]
     if prior_0 is not None :
         fig = plt.figure(figsize=(10,10))
-        grid_prior = tv.utils.make_grid(prior_0/2+0.5,)
+        grid_prior = tv.utils.make_grid(transform_back(prior_0),)
         plt.imshow(grid_prior.detach().cpu().permute(1,2,0).numpy())
         plt.title("BaseDistribution")
         img= wandb.Image(fig, caption=f"Base Distribution {step}")
@@ -25,7 +34,7 @@ def draw_samples(prior_0, langevin_prior, posterior, approximate_posterior, step
     
     if langevin_prior is not None :
         fig = plt.figure(figsize=(10,10))
-        grid_langevin_prior = tv.utils.make_grid(langevin_prior/2+0.5)
+        grid_langevin_prior = tv.utils.make_grid(transform_back(langevin_prior))
         plt.imshow(grid_langevin_prior.detach().cpu().permute(1,2,0).numpy())
         plt.title("Prior")
         img= wandb.Image(fig, caption=f"Prior {step}")
@@ -35,7 +44,7 @@ def draw_samples(prior_0, langevin_prior, posterior, approximate_posterior, step
     
     if posterior is not None :
         fig = plt.figure(figsize=(10,10))
-        grid_langevin_posterior = tv.utils.make_grid(posterior/2+0.5)
+        grid_langevin_posterior = tv.utils.make_grid(transform_back(posterior))
         plt.imshow(grid_langevin_posterior.detach().cpu().permute(1,2,0).numpy())
         plt.title("Posterior")
         img= wandb.Image(fig, caption=f"Posterior {step}")
@@ -44,7 +53,7 @@ def draw_samples(prior_0, langevin_prior, posterior, approximate_posterior, step
 
     if approximate_posterior is not None :
         fig = plt.figure(figsize=(10,10))
-        grid_langevin_approximate_posterior = tv.utils.make_grid(approximate_posterior/2+0.5)
+        grid_langevin_approximate_posterior = tv.utils.make_grid(transform_back(approximate_posterior))
         plt.imshow(grid_langevin_approximate_posterior.detach().cpu().permute(1,2,0).numpy())
         plt.title("Approximate Posterior")
         img= wandb.Image(fig, caption=f"Approximate Posterior {step}")

@@ -95,6 +95,7 @@ class AbstractTrainer:
                     x_reconstruction,
                     i,
                     self.logger,
+                    transform_back_name=self.cfg["transform_back_name"],
                 )
             if i % self.cfg["val_every"] == 0 and val_data is not None:
                 self.eval(val_data, i)
@@ -111,7 +112,7 @@ class AbstractTrainer:
             k=0
             while k* self.cfg["batch_size"]<1000:
                 x = val_data[k*self.cfg["batch_size"]:(k+1)*self.cfg["batch_size"]]
-                x_expanded = x.unsqueeze(0).expand(self.cfg["multiple_sample_val"],x.shape[0],self.cfg["nc"],self.cfg["img_size"],self.cfg["img_size"]).flatten(1,2)
+                x_expanded = x.unsqueeze(0).expand(self.cfg["multiple_sample_val"],x.shape[0],self.cfg["nc"],self.cfg["img_size"],self.cfg["img_size"]).flatten(0,1)
                 dic = {}
                 mu_q, log_var_q = self.Encoder(x_expanded).chunk(2,1)
                 std_q = torch.exp(0.5*log_var_q)
