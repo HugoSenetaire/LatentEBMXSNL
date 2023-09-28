@@ -66,9 +66,10 @@ class _E_MNIST(nn.Module):
         self.ebm = nn.Sequential(nn.Linear(nz, ndf), nn.LeakyReLU(0.2),
             nn.Linear(ndf, ndf), nn.LeakyReLU(0.2),
             # nn.Linear(ndf, ndf), nn.LeakyReLU(0.2),
-            nn.Linear(ndf, 1))
+            nn.Linear(ndf, 1, bias=False))
+        self.log_partition = nn.Parameter(torch.tensor(0.,),requires_grad=True)
     def forward(self, z):
-        return self.ebm(z.squeeze()).view(-1, 1, 1, 1)
+        return self.ebm(z.squeeze()).view(-1, 1, 1, 1)+self.log_partition
 
 class _E_SVHN(nn.Module):
   def __init__(self, nz, ndf):
@@ -78,13 +79,14 @@ class _E_SVHN(nn.Module):
         self.ebm = nn.Sequential(nn.Linear(nz, ndf), nn.LeakyReLU(0.2),
             nn.Linear(ndf, ndf), nn.LeakyReLU(0.2),
             nn.Linear(ndf, ndf), nn.LeakyReLU(0.2),
-            nn.Linear(ndf, 1))
+            nn.Linear(ndf, 1, bias=False))
+        self.log_partition = nn.Parameter(torch.tensor(0.,),requires_grad=True)
   def forward(self, z):
       z_squeeze = z.squeeze()
       energy = self.ebm(z_squeeze)
       base_dist = torch.distributions.normal.Normal(self.mean, self.std).log_prob(z_squeeze).detach()
       base_dist = base_dist.reshape(z.shape).flatten(1).sum(1,).reshape(-1,1)
-      return (energy-base_dist).view(-1, 1, 1, 1)
+      return (energy-base_dist).view(-1, 1, 1, 1)+self.log_partition
 
 
 class _Encoder_MNIST(nn.Module):
