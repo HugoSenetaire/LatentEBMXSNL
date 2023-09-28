@@ -16,7 +16,7 @@ log_every = 10
 n_iter = 70000
 n_iter_pretrain = 1000
 val_every = 100
-nb_sample_partition_estimate_val = 256
+nb_sample_partition_estimate_val = 20000
 multiple_sample_val = 10
 root = "/scratch/hhjs/data"
 
