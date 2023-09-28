@@ -27,6 +27,10 @@ class BernoulliLossReconstruction(LossReconstruction):
     def __call__(self, x_hat, x):
         x_hat = x_hat.flatten(1)
         x = x.flatten(1)
+        if torch.isnan(x_hat).any():
+            print(x_hat)
+            print(x)
+            raise ValueError
         return torch.sum(-x*torch.log(x_hat+1e-8) - (1-x)*torch.log(1-x_hat+1e-8), dim=1) 
     
 

@@ -9,12 +9,12 @@ import torchvision.transforms as tfm
 from datasets import get_dataset_and_loader
 from trainers import get_trainer
 
-trainer = "TrainerCD"
-dataset = "MNIST"
+trainer = "Trainer_LEBM_SNL"
+dataset = "BINARYMNIST"
 save_image_every = 50
 log_every = 10
 n_iter = 70000
-n_iter_pretrain = 5000
+n_iter_pretrain = 1000
 val_every = 100
 nb_sample_partition_estimate_val = 256
 multiple_sample_val = 10
@@ -55,7 +55,7 @@ elif dataset == "BINARYMNIST":
     loss_reconstruction = "bernoulli"
 
 elif dataset == "CIFAR_10":
-    img_size, batch_size = 28, 256
+    img_size, batch_size = 32, 256
     nz, nc, ndf, ngf = 16, 1, 200, 16
     K_0, a_0, K_1, a_1 = 20, 0.4, 20, 0.1
     llhd_sigma = 0.3
@@ -91,20 +91,20 @@ cfg = {
 
 
 cfg_clipping = {
-    "E_clip_grad_type": "norm",
-    "E_clip_grad_value": 0.5,
+    "E_clip_grad_type": 'norm',
+    "E_clip_grad_value": 1.0,
     "E_nb_sigma": 3,
-    "G_clip_grad_type": "norm",
-    "G_clip_grad_value": 0.5,
+    "G_clip_grad_type": 'norm',
+    "G_clip_grad_value": 1.0,
     "G_nb_sigma": 3,
-    "Encoder_clip_grad_type": "norm",
-    "Encoder_clip_grad_value": 0.5,
+    "Encoder_clip_grad_type": 'norm',
+    "Encoder_clip_grad_value": 1.0,
     "Encoder_nb_sigma": 3,
 }
 
 cfg_regularization = {
     "l2_grad": 0.0,
-    "l2_param": 1.0,
+    "l2_param": 0.0,
     "l2_output": 0.0,
 }
 
@@ -151,8 +151,9 @@ if __name__ == "__main__":
     else:
         cfg.update({"root": "/scratch/hhjs/data"})
         cfg.update({"log_dir": "/scratch/hhjs/logs"})
+    data_train, data_valid, data_test, transform_back_name = get_dataset_and_loader(cfg, device)
+    cfg.update({"transform_back_name": transform_back_name})
 
     total_train = get_trainer(cfg)
     total_train = total_train(cfg)
-    data_train, data_valid, data_test = get_dataset_and_loader(cfg, device)
     total_train.train(train_data=data_train, val_data=data_test)
