@@ -16,7 +16,7 @@ def wgan_gradient_penalty(ebm, x, x_gen,):
     interpolated.requires_grad_(True)
 
     # Calculate probability of interpolated examples
-    prob_interpolated = ebm.f_theta(interpolated).flatten(1).sum(1)
+    prob_interpolated = ebm(interpolated).flatten(1).sum(1)
 
     # Calculate gradients of probabilities with respect to examples
     gradients = torch_grad(outputs=prob_interpolated, inputs=interpolated,

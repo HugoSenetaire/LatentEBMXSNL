@@ -67,7 +67,9 @@ class Trainer_LEBM_SNL2(AbstractTrainer):
         # loss_ebm =  energy_approximate.mean() + log_partition_estimate
 
         loss_total = loss_g + KL_loss + loss_ebm
-        regularization(self.E, z_q, z_e_0, energy_approximate, energy_proposal, self.cfg, self.logger, step)
+        dic_loss = regularization(self.E, z_q, z_e_0, energy_approximate, energy_proposal, self.cfg, self.logger, step)
+        for key, item in dic_loss.items():
+            loss_total += item
         loss_total.backward()
         grad_clipping_all_net([self.E,self.G,self.Encoder], ["E", "G", "Encoder"], [self.optE, self.optG, self.optEncoder,], self.logger, self.cfg, step)
 

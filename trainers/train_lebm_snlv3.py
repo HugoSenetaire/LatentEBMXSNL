@@ -47,7 +47,7 @@ class Trainer_LEBM_SNL(AbstractTrainer):
         base_dist_z_base_dist = self.base_dist.log_prob(z_e_0.flatten(1)).sum(1)
 
 
-        log_partition_estimate = torch.logsumexp(-energy_base_dist -base_dist_z_base_dist,0) - math.log(energy_base_dist.shape[0])
+        log_partition_estimate = torch.logsumexp(-energy_base_dist,0) - math.log(energy_base_dist.shape[0])
         loss_ebm = (energy_approximate - base_dist_z_approximate).mean() + log_partition_estimate.exp() -1
         # loss_ebm = (energy_approximate - base_dist_approximate).mean() + log_partition_estimate
 

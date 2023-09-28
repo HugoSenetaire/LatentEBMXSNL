@@ -45,7 +45,9 @@ class TrainerCDTrick(AbstractTrainer):
 
         log_partition_estimate = torch.logsumexp(-energy_proposal,0) - math.log(energy_proposal.shape[0])
         loss_e = (energy_posterior-proposal_z_posterior).mean() + log_partition_estimate.exp() -1
-        regularization(self.E, z_g_k, z_proposal, energy_posterior, energy_proposal, self.cfg, self.logger, step=step)
+        dic_loss = regularization(self.E, z_g_k, z_proposal, energy_posterior, energy_proposal, self.cfg, self.logger, step=step)
+        for key, item in dic_loss.items():
+            loss_e += item
         loss_e.backward()
         grad_clipping_all_net([self.E], ["E"], [self.optE], self.logger, self.cfg, step=step)
         self.optE.step()

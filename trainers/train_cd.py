@@ -14,21 +14,23 @@ class TrainerCD(AbstractTrainer):
     def train_step(self, x, step):
         z_e_0, z_g_0 = self.base_dist.sample((self.cfg["batch_size"],self.cfg['nz'],1,1)), self.base_dist.sample((self.cfg["batch_size"],self.cfg['nz'],1,1))
         z_e_k = sample_langevin_prior(z_e_0, self.E, self.cfg["K_0"], self.cfg["a_0"])
-        z_g_k = sample_langevin_posterior(z_g_0, x, self.G, self.E, self.cfg["K_1"], self.cfg["a_1"], self.cfg["llhd_sigma"], self.loss_reconstruction)
+        z_g_k = sample_langevin_posterior(z_g_0, x, self.G, self.E, self.cfg["K_1"], self.cfg["a_1"], self.loss_reconstruction)
 
 
         self.optG.zero_grad()
         x_hat = self.G(z_g_k.detach())
         loss_g = self.loss_reconstruction(x_hat, x).mean(dim=0).mean()
         loss_g.backward()
-        grad_clipping_all_net([self.G], ["G"], [self.optG], self.logger, self.cfg, step=step)
+        # grad_clipping_all_net([self.G], ["G"], [self.optG], self.logger, self.cfg, step=step)
         self.optG.step()
         self.optE.zero_grad()
         en_pos, en_neg = self.E(z_g_k.detach()).mean(), self.E(z_e_k.detach()).mean()
         loss_e = en_pos - en_neg
-        regularization(self.E, z_g_k, z_e_k, en_pos, en_neg, self.cfg, self.logger, step)
+        dic_loss = regularization(self.E, z_g_k, z_e_k, en_pos, en_neg, self.cfg, self.logger, step)
+        for key, item in dic_loss.items():
+            loss_e += item
         loss_e.backward()
-        grad_clipping_all_net([self.E], ["E"], [self.optE], self.logger, self.cfg, step)
+        # grad_clipping_all_net([self.E], ["E"], [self.optE], self.logger, self.cfg, step)
         self.optE.step()
         dic_loss = {
             "loss_e": loss_e,
