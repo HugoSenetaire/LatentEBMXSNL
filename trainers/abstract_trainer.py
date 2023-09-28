@@ -8,7 +8,7 @@ import wandb
 from log_utils import draw_samples, log
 from loss_reconstruction import get_loss_reconstruction
 from networks import network_getter
-from sampler import sample_langevin_posterior, sample_langevin_prior, sample_p_data, sample_langevin_prior_notrick, sample_langevin_posterior_notrick
+from sampler import sample_langevin_posterior, sample_langevin_prior, Sampler, sample_langevin_prior_notrick, sample_langevin_posterior_notrick
 
 
 class AbstractTrainer:
@@ -55,8 +55,9 @@ class AbstractTrainer:
         self.n_iter_pretrain = cfg["n_iter_pretrain"]
 
     def train(self, train_data, val_data=None):
+        self.sampler= Sampler(train_data)
         for i in tqdm.tqdm(range(self.n_iter_pretrain + self.n_iter)):
-            x = sample_p_data(train_data, self.cfg["batch_size"])
+            x = self.sampler.sample_p_data(self.cfg["batch_size"])
             if i < self.n_iter_pretrain:
                 dic_loss = self.train_step_standard_elbo(x, i)
             else:
@@ -170,8 +171,6 @@ class AbstractTrainer:
                 max_len = len(val_data)/10
             else :
                 max_len = len(val_data)
-
-
             while k* self.cfg["batch_size"]<max_len:
                 x = val_data[k*self.cfg["batch_size"]:(k+1)*self.cfg["batch_size"]]
                 x_expanded = x.unsqueeze(0).expand(self.cfg["multiple_sample_val"],x.shape[0],self.cfg["nc"],self.cfg["img_size"],self.cfg["img_size"]).flatten(0,1)

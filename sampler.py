@@ -2,10 +2,28 @@ import torch as t
 import torch.nn as nn
 import torchvision as tv
 import torchvision.transforms as tfm
+import torch.utils.data.dataloader
 
 
-def sample_p_data(data, batch_size):
-    return data[t.LongTensor(batch_size).random_(0, data.size(0))].detach()
+class Sampler():
+    def __init__(self, data) -> None:
+        self.data = data
+        if isinstance(data, torch.utils.data.dataloader.DataLoader):
+            self.iterator = iter(data)
+        else:
+            self.iterator = None
+
+    def sample_p_data(self, batch_size):
+        if self.iterator is None:
+            return self.data[t.LongTensor(batch_size).random_(0, self.data.size(0))].detach()
+        else:
+            try:
+                return next(self.iterator)[0]
+            except StopIteration:
+                self.iterator = iter(self.data)
+                return next(self.iterator)[0]
+    
+
 
 def sample_p_0(n, nz, device):
     return t.randn(*[n, nz, 1, 1]).to(device)

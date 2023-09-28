@@ -1,5 +1,6 @@
 import argparse
 import pathlib
+import torch
 
 import torch as t
 import torch.nn as nn
@@ -10,12 +11,12 @@ from datasets import get_dataset_and_loader
 from trainers import get_trainer
 
 trainer = "Trainer_LEBM_SNL2"
-dataset = "BINARYMNIST"
+dataset = "CALTECH101SILHOUETTES"
 save_image_every = 500
 log_every = 10
 n_iter = 100000
 n_iter_pretrain = 0
-val_every = 200
+val_every = 500
 nb_sample_partition_estimate_val = 20000
 multiple_sample_val = 100
 batch_size_val = 64
@@ -49,10 +50,10 @@ elif dataset == "MNIST":
     device = t.device("cuda" if t.cuda.is_available() else "cpu")
     loss_reconstruction = "gaussian"
 
-elif dataset == "BINARYMNIST":
+elif dataset == "BINARYMNIST" or dataset == "OMNIGLOT" or dataset == "CALTECH101SILHOUETTES":
     img_size, batch_size = 28, 256
     nz, nc, ndf, ngf = 16, 1, 200, 16
-    K_0, a_0, K_1, a_1 = 40, 0.4, 20, 0.1
+    K_0, a_0, K_1, a_1 = 40, 0.4, 40, 0.1
     llhd_sigma = 0.3
     device = t.device("cuda" if t.cuda.is_available() else "cpu")
     loss_reconstruction = "bernoulli"
@@ -161,6 +162,12 @@ if __name__ == "__main__":
         cfg.update({"root": "/scratch/hhjs/data"})
         cfg.update({"log_dir": "/scratch/hhjs/logs"})
     data_train, data_valid, data_test, transform_back_name = get_dataset_and_loader(cfg, device)
+    if isinstance(data_valid, torch.utils.data.dataloader.DataLoader,):
+        data_valid = data_valid.dataset.tensors[0]
+    if isinstance(data_test, torch.utils.data.dataloader.DataLoader,):
+        data_test = data_test.dataset.tensors[0]
+
+
     cfg.update({"transform_back_name": transform_back_name})
 
     total_train = get_trainer(cfg)

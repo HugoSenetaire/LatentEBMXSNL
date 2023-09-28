@@ -65,7 +65,7 @@ class _E_MNIST(nn.Module):
         super().__init__()
         self.ebm = nn.Sequential(nn.Linear(nz, ndf), nn.LeakyReLU(0.2),
             nn.Linear(ndf, ndf), nn.LeakyReLU(0.2),
-            # nn.Linear(ndf, ndf), nn.LeakyReLU(0.2),
+            nn.Linear(ndf, ndf), nn.LeakyReLU(0.2),
             nn.Linear(ndf, 1, bias=False))
         self.log_partition = nn.Parameter(torch.tensor(0.,),requires_grad=True)
     def forward(self, z):
@@ -122,7 +122,7 @@ def network_getter(dataset, cfg):
         _G = _G_SVHN(cfg['ngf'], cfg['nz'], cfg['nc'])
         _Encoder = _Encoder_SVHN(cfg['ngf'], cfg['nz'], cfg['nc'])
         _E = _E_SVHN(cfg['nz'], cfg['ndf'])
-    elif dataset =="BINARYMNIST" :
+    elif dataset =="BINARYMNIST" or dataset == "OMNIGLOT" or dataset == "CALTECH101SILHOUETTES":
         _G = _G_BINARYMNIST(cfg['ngf'], cfg['nz'], cfg['nc'])
         _Encoder = _Encoder_MNIST(cfg['ngf'], cfg['nz'], cfg['nc'])
         _E = _E_MNIST(cfg['nz'], cfg['ndf'])

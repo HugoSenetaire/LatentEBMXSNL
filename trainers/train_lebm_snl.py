@@ -5,7 +5,7 @@ import torch
 from grad_clipper import grad_clipping_all_net
 from regularization import regularization
 from sampler import (sample_langevin_posterior, sample_langevin_prior,
-                     sample_p_0, sample_p_data)
+                     sample_p_0, Sampler)
 
 from .abstract_trainer import AbstractTrainer
 
