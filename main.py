@@ -94,12 +94,15 @@ cfg_clipping = {
     "E_clip_grad_type": 'norm',
     "E_clip_grad_value": 1.0,
     "E_nb_sigma": 3,
+    "E_replace_nan": False,
     "G_clip_grad_type": 'norm',
     "G_clip_grad_value": 1.0,
     "G_nb_sigma": 3,
+    "G_replace_nan": False,
     "Encoder_clip_grad_type": 'norm',
     "Encoder_clip_grad_value": 1.0,
     "Encoder_nb_sigma": 3,
+    "Encoder_replace_nan": False,
 }
 
 cfg_regularization = {
