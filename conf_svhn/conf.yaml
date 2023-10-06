@@ -1,0 +1,21 @@
+defaults:
+  - base_config
+  - dataset : svhn
+  - encoder : conv_svhn
+  - energy : energy_svhn
+  - generator: conv_svhn
+  - prior : gaussian
+  - regularization : l2_grad
+  - sampler_prior : langevin
+  - sampler_posterior : langevin
+  - sampler_prior_no_trick : langevin
+  - sampler_posterior_no_trick : langevin
+  - optim_encoder : adam
+  - optim_energy : adam
+  - optim_generator : adam
+  - optim_prior : adam
+  - machine : titans
+  - trainer: prior_training_detached
+
+
+

@@ -1,0 +1,7 @@
+defaults:
+  - base_generator
+network_name: 'conv_mnist'
+loss_reconstruction_name: 'bernoulli'
+activation_name: 'sigmoid'
+ngf: 16
+llhd_sigma: null

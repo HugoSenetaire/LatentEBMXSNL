@@ -1,0 +1,27 @@
+defaults:
+  - snelbo_trainer_base
+
+trainer_name : "snelbo_trainer"
+
+nz : 16
+
+proposal_mean: 0.0
+proposal_std: 1.0
+
+n_iter: 100000
+
+log_every: 100
+save_every: 1000
+save_images_every: 1000
+val_every: 1000
+test_every: 10000
+
+multiple_sample_val_SNIS: 100
+multiple_sample_val: 100
+nb_sample_partition_estimate_val: 100
+
+device : "cuda"
+
+detach_approximate_posterior : True
+fix_encoder : False
+fix_generator : False

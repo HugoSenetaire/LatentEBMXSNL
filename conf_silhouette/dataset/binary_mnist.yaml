@@ -1,0 +1,8 @@
+defaults:
+  - base_dataset_name    
+dataset_name: CALTECH101SILHOUETTES
+batch_size: 256
+batch_size_val: 256
+nc : 1
+img_size : 28
+transform_back_name: "0_1"
