@@ -33,6 +33,10 @@ class TitansConfig(MachineConfig):
     root: str = "/scratch/hhjs/"
 
 @dataclass
+class CPUConfig(MachineConfig):
+    root: str = "dataset/"
+
+@dataclass
 class Config:
     dataset: BaseDatasetConfig = MISSING
     encoder: BaseEncoderConfig = MISSING
@@ -72,6 +76,7 @@ def store_main():
     cs.store(name="machine", node=MachineConfig, group="machine")
     cs.store(name="karolina", node=KarolinaConfig, group="machine")
     cs.store(name="titans", node=TitansConfig, group="machine")
+    cs.store(name="cpu", node=CPUConfig, group="machine")
 
     store_base_encoder(cs)
     store_base_energy(cs)
