@@ -2,7 +2,7 @@ from .abstract_trainer import AbstractTrainer
 from .train_cd import ContrastiveDivergence
 from .train_cd_trick import ContrastiveDivergenceLogTrick
 from .train_lebm_snl import SNELBO
-from .train_prior import Trainer_GaussianMixture
+from .train_prior import TrainerPrior
 
 def get_trainer(cfg):
     trainer_name = cfg.trainer.trainer_name
@@ -13,6 +13,6 @@ def get_trainer(cfg):
     elif trainer_name == "snelbo_trainer":
         return SNELBO
     elif trainer_name == "prior_trainer":
-        return Trainer_GaussianMixture
+        return TrainerPrior
     else:
         raise ValueError("Trainer not implemented")

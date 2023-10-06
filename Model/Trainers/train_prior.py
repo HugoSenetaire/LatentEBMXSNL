@@ -9,9 +9,10 @@ from Model.Sampler.sampler_previous import (sample_langevin_posterior, sample_la
 from .abstract_trainer import AbstractTrainer
 
 
-class Trainer_GaussianMixture(AbstractTrainer):
+class TrainerPrior(AbstractTrainer):
     def __init__(self, cfg, ):
         super().__init__(cfg, )
+        self.detach_approximate_posterior = cfg.trainer.detach_approximate_posterior
 
     def train_step(self, x, step):
         self.opt_generator.zero_grad()
@@ -40,14 +41,18 @@ class Trainer_GaussianMixture(AbstractTrainer):
         entropy_posterior = torch.sum(0.5* (math.log(2*math.pi) +  log_var_q + 1), dim=1).mean()
 
         # Energy :
+        if self.detach_approximate_posterior:
+            z_q = z_q.detach()
         log_prob_multi_gaussian = self.prior.log_prob(z_q)
         loss_multi_gaussian = -log_prob_multi_gaussian.mean()
         base_dist_z_approximate = self.base_dist.log_prob(z_q.flatten(1)).sum(1)
         base_dist_z_base_dist = self.base_dist.log_prob(z_e_0.flatten(1)).sum(1)
-
-        loss_total = loss_g - entropy_posterior + loss_multi_gaussian
+        if self.detach_approximate_posterior:
+            loss_total = loss_g + KL_loss + loss_multi_gaussian # Train the vae with gaussian prior and just focus the new prior
+        else :
+            loss_total = loss_g - entropy_posterior + loss_multi_gaussian # Train the var directly with other prior
         loss_total.backward()
-        self.grad_clipping_all_net(self, ["energy", "generator", "encoder"], step)
+        self.grad_clipping_all_net(["energy", "generator", "encoder"], step)
 
         dic_loss = {
             "loss_g":loss_g.item(),

@@ -13,6 +13,7 @@ from .abstract_trainer import AbstractTrainer
 class SNELBO(AbstractTrainer):
     def __init__(self, cfg, ):
         super().__init__(cfg, )
+        self.detach_approximate_posterior = cfg.trainer.detach_approximate_posterior
 
     def train_step(self, x, step):
         self.opt_generator.zero_grad()
@@ -39,6 +40,8 @@ class SNELBO(AbstractTrainer):
         entropy_posterior = torch.sum(0.5* (math.log(2*math.pi) +  log_var_q + 1), dim=1).mean()
 
         # Energy :
+        if self.cfg.trainer.detach_approximate_posterior:
+            z_q = z_q.detach()
         energy_approximate = self.energy(z_q).flatten(1).sum(1)
         energy_base_dist = self.energy(z_e_0).flatten(1).sum(1)
 
