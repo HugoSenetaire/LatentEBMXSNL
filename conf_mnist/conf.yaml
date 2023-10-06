@@ -1,0 +1,21 @@
+defaults:
+  - base_config
+  - dataset : mnist
+  - encoder : conv_mnist
+  - energy : energy_mnist
+  - generator: conv_mnist
+  - prior : gaussian
+  - regularization : l2_grad
+  - sampler_prior : langevin
+  - sampler_posterior : langevin
+  - sampler_prior_no_trick : langevin
+  - sampler_posterior_no_trick : langevin
+  - optim_encoder : adam
+  - optim_energy : adam
+  - optim_generator : adam
+  - optim_prior : adam
+  - machine : titans
+  - trainer: contrastive_divergence
+
+
+
