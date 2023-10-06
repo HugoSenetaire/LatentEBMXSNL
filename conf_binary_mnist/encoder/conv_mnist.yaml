@@ -1,0 +1,5 @@
+defaults:
+  - base_encoder
+network_name: 'conv_mnist'
+activation_name: null
+nef: 16
