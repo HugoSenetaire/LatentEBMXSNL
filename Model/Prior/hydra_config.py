@@ -21,5 +21,5 @@ class MixtureOfGaussianPriorConfig(BasePriorConfig):
 
 def store_base_prior(cs: ConfigStore):
     cs.store(group="prior", name="base_prior", node=BasePriorConfig)
-    cs.store(group="prior", name="mixture_of_gaussian", node=MixtureOfGaussianPriorConfig)
+    cs.store(group="prior", name="base_mixture_of_gaussian", node=MixtureOfGaussianPriorConfig)
 
