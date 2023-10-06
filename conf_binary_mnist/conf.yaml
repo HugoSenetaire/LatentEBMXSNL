@@ -1,6 +1,6 @@
 defaults:
   - base_config
-  - dataset : mnist
+  - dataset : binary_mnist
   - encoder : conv_mnist
   - energy : energy_mnist
   - generator: conv_mnist

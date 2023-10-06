@@ -123,7 +123,7 @@ def get_dataset_and_loader(cfg, device):
         data_test = t.stack([x[0] for x in tv.datasets.MNIST(train=False, download=True, root='{}/mnist'.format(cfg.dataset.root_dataset), transform=transform)]).to(device)
         data_valid = data_test
         transform_back_name = "m1_1"
-    elif dataset == "BINARYMNIST":
+    elif dataset == "BINARY_MNIST":
         xtrain = np.loadtxt('http://www.cs.toronto.edu/~larocheh/public/datasets/binarized_mnist/binarized_mnist_train.amat',dtype=np.float32).reshape(-1,1,28, 28,order='C')
         xvalid = np.loadtxt('http://www.cs.toronto.edu/~larocheh/public/datasets/binarized_mnist/binarized_mnist_valid.amat',dtype=np.float32).reshape(-1,1,28, 28,order='C')
         xtest = np.loadtxt('http://www.cs.toronto.edu/~larocheh/public/datasets/binarized_mnist/binarized_mnist_test.amat',dtype=np.float32).reshape(-1,1,28, 28,order='C')
