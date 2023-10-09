@@ -1,5 +1,5 @@
 defaults:
-  - snelbo_trainer_base
+  - prior_trainer_base
 
 trainer_name : "prior_trainer"
 

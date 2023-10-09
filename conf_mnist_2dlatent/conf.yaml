@@ -5,7 +5,7 @@ defaults:
   - energy : energy_mnist
   - generator: conv_mnist
   - prior : mixture_of_gaussian
-  - regularization : l2_grad
+  - regularization : no_reg
   - sampler_prior : langevin
   - sampler_posterior : langevin
   - optim_encoder : adam
@@ -13,7 +13,7 @@ defaults:
   - optim_generator : adam
   - optim_prior : adam
   - machine : titans
-  - trainer: prior_training
+  - trainer: contrastive_divergence
 
 
 

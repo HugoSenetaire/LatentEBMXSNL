@@ -1,0 +1,3 @@
+defaults :
+  - base_prior
+prior_name : gaussian

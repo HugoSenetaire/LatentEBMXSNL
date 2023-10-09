@@ -1,5 +1,5 @@
 defaults:
-  - snelbo_trainer_base
+  - contrastive_divergence_trainer_base
 
 trainer_name : "contrastive_divergence_trainer"
 

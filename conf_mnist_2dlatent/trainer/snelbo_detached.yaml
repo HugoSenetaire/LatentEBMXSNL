@@ -1,9 +1,8 @@
 defaults:
-  - contrastive_divergence_log_trick_trainer_base
+  - snelbo_trainer_base
 
-trainer_name : "contrastive_divergence_log_trick_trainer"
-
-nz : 16
+trainer_name : "snelbo_trainer"
+nz : 2
 
 proposal_mean: 0.0
 proposal_std: 1.0
@@ -12,7 +11,7 @@ n_iter: 100000
 
 log_every: 100
 save_every: 1000
-save_images_every: 1000
+save_images_every: 200
 val_every: 1000
 test_every: 10000
 
@@ -22,3 +21,6 @@ nb_sample_partition_estimate_val: 100
 
 device : "cuda"
 
+detach_approximate_posterior : True
+fix_encoder : False
+fix_generator : False
