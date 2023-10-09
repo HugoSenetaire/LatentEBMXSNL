@@ -42,12 +42,12 @@ class BaseTrainerConfig:
 @dataclass
 class TrainerContrastiveDivergence(BaseTrainerConfig):
     trainer_name : str = "contrastive_divergence_trainer"
-    use_trick_sampler : bool = False
+    use_trick_sampler : bool = True
 
 @dataclass
 class TrainerContrastiveDivergenceLogTrick(BaseTrainerConfig):
     trainer_name : str = "contrastive_divergence_log_trick_trainer"
-    use_trick_sampler : bool = False
+    use_trick_sampler : bool = True
 
 @dataclass    
 class TrainerPrior(BaseTrainerConfig):
