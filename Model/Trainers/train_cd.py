@@ -11,16 +11,11 @@ from .abstract_trainer import AbstractTrainer
 class ContrastiveDivergence(AbstractTrainer):
     def __init__(self, cfg, ):
         super().__init__(cfg, )
-        self.use_trick_sampler = cfg.trainer.use_trick_sampler
-
+        
     def train_step(self, x, step):
         z_e_0, z_g_0 = self.base_dist.sample((self.cfg.dataset.batch_size,self.cfg.trainer.nz,1,1)), self.base_dist.sample((self.cfg.dataset.batch_size,self.cfg.trainer.nz,1,1))
-        if self.use_trick_sampler:
-            z_e_k = self.sampler_prior(z_e_0,self.energy,)
-            z_g_k = self.sampler_posterior(z_g_0, x,self.generator,self.energy, )
-        else :
-            z_e_k = self.sampler_prior_no_trick(z_e_0,self.energy,)
-            z_g_k = self.sampler_posterior_no_trick(z_g_0, x,self.generator,self.energy, )
+        z_e_k = self.sampler_prior(z_e_0,self.energy,)
+        z_g_k = self.sampler_posterior(z_g_0, x,self.generator,self.energy, )
 
 
         self.opt_generator.zero_grad()

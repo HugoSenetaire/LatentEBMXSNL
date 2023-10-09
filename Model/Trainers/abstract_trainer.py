@@ -31,10 +31,8 @@ class AbstractTrainer:
         self.prior = get_prior(cfg)
         self.encoder = AbstractEncoder(cfg, cfg.trainer.nz, cfg.dataset.nc)
 
-        self.sampler_prior = SampleLangevinPrior(self.cfg.sampler_prior.K, self.cfg.sampler_prior.a, trick=True)
-        self.sampler_posterior = SampleLangevinPosterior(self.cfg.sampler_posterior.K, self.cfg.sampler_posterior.a, trick=True)
-        self.sampler_prior_no_trick = SampleLangevinPrior(self.cfg.sampler_prior_no_trick.K, self.cfg.sampler_prior_no_trick.a, trick=False)
-        self.sampler_posterior_no_trick = SampleLangevinPosterior(self.cfg.sampler_posterior_no_trick.K, self.cfg.sampler_posterior_no_trick.a, trick=False)
+        self.sampler_prior = SampleLangevinPrior(self.cfg.sampler_prior.K, self.cfg.sampler_prior.a,)
+        self.sampler_posterior = SampleLangevinPosterior(self.cfg.sampler_posterior.K, self.cfg.sampler_posterior.a,)
         
         self.proposal = torch.distributions.normal.Normal(
             torch.tensor(cfg.trainer.proposal_mean, device=cfg.trainer.device, dtype=torch.float32),
@@ -303,10 +301,8 @@ class AbstractTrainer:
         z_e_0, z_g_0 = self.base_dist.sample((batch_save, self.cfg.trainer.nz, 1, 1)), self.base_dist.sample((batch_save, self.cfg.trainer.nz, 1, 1))
     
         z_e_k = self.sampler_prior(z_e_0,self.energy,)
-        z_e_k_2 = self.sampler_prior_no_trick(z_e_0,self.energy,)
 
         z_g_k = self.sampler_posterior(z_g_0,x[:batch_save],self.generator,self.energy,)
-        z_g_k_2 = self.sampler_posterior_no_trick(z_g_0,x[:batch_save],self.generator,self.energy,)
 
         x_base, mu_base =self.generator.sample(z_e_0, return_mean=True)
         draw(x_base.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleBaseDistribution")
@@ -315,18 +311,10 @@ class AbstractTrainer:
         x_prior, mu_prior =self.generator.sample(z_e_k, return_mean=True)
         draw(x_prior.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleEBMPrior")
         draw(mu_prior.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="MeanEBMPrior")
-    
-        x_prior_2, mu_prior_2 =self.generator.sample(z_e_k_2, return_mean=True)
-        draw(x_prior_2.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleEBMPriorNoTrick")
-        draw(mu_prior_2.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="MeanEBMPriorNoTrick")
-        
+ 
         x_posterior, mu_posterior =self.generator.sample(z_g_k, return_mean=True)
         draw(x_posterior.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleEBMPosterior")
         draw(mu_posterior.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="MeanEBMPosterior")
-
-        x_posterior_2, mu_posterior_2 =self.generator.sample(z_g_k_2, return_mean=True)
-        draw(x_posterior_2.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleEBMPosteriorNoTrick")
-        draw(mu_posterior_2.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="MeanEBMPosteriorNoTrick")
 
         x_reconstruction, mu_reconstruction =self.generator.sample(self.encoder(x[:batch_save]).chunk(2, 1)[0].reshape(-1, self.cfg.trainer.nz, 1, 1), return_mean=True)
         draw(x_reconstruction.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleReconstruction")
@@ -348,41 +336,43 @@ class AbstractTrainer:
             mu_q, log_var_q = self.encoder(data[:len_samples]).chunk(2,1)
             z_e_0, z_g_0 = self.base_dist.sample((len_samples, self.cfg.trainer.nz, 1, 1)), self.base_dist.sample((len_samples, self.cfg.trainer.nz, 1, 1))
             z_e_k = self.sampler_prior(z_e_0,self.energy,)
-            z_e_k_2 = self.sampler_prior_no_trick(z_e_0,self.energy,)
-            z_g_k = self.sampler_posterior(z_g_0,data[:len_samples],self.generator,self.energy,)
-            z_g_k_2 = self.sampler_posterior_no_trick(z_g_0,data[:len_samples],self.generator,self.energy,)
 
 
 
-            energy_list, energy_list_names, x, y = self.get_all_energies(z_e_0)
-            plot_contour(z_e_0, energy_list, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Base Distribution")
+            samples_aux, energy_list, energy_list_names, x, y = self.get_all_energies(z_e_0)
+            plot_contour(samples_aux, energy_list, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Base Distribution")
 
-            energy_list, energy_list_names, x, y = self.get_all_energies(z_e_k)
-            plot_contour(z_e_k, energy_list, energy_list_names, x, y, step=step, logger=self.logger, title="Latent EBM Prior")
+            samples_aux, energy_list, energy_list_names, x, y = self.get_all_energies(z_e_k)
+            plot_contour(samples_aux, energy_list, energy_list_names, x, y, step=step, logger=self.logger, title="Latent EBM Prior")
 
-            energy_list, energy_list_names, x, y = self.get_all_energies(z_e_k_2)
-            plot_contour(z_e_k_2, energy_list, energy_list_names, x, y, step=step, logger=self.logger, title="Latent EBM Prior No Trick")
+            samples_aux, energy_list, energy_list_names, x, y = self.get_all_energies(z_g_0)
+            plot_contour(samples_aux, energy_list, energy_list_names, x, y, step=step, logger=self.logger, title="Latent EBM Posterior")
 
-            energy_list, energy_list_names, x, y = self.get_all_energies(z_g_0)
-            plot_contour(z_g_k, energy_list, energy_list_names, x, y, step=step, logger=self.logger, title="Latent EBM Posterior")
+            samples_aux, energy_list, energy_list_names, x, y = self.get_all_energies(self.prior.sample(len_samples).reshape(len_samples, self.cfg.trainer.nz, 1, 1).to(self.cfg.trainer.device))
+            plot_contour(samples_aux, energy_list, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Extra Prior")
 
-            energy_list, energy_list_names, x, y = self.get_all_energies(z_g_k_2)
-            plot_contour(z_g_k_2, energy_list, energy_list_names, x, y, step=step, logger=self.logger, title="Latent EBM Posterior No Trick")
-
-            energy_list, energy_list_names, x, y = self.get_all_energies(self.prior.sample(len_samples).reshape(len_samples, self.cfg.trainer.nz, 1, 1).to(self.cfg.trainer.device))
-            plot_contour(z_e_0, energy_list, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Extra Prior")
-
-            energy_list, energy_list_names, x, y = self.get_all_energies(mu_q)
-            plot_contour(mu_q, energy_list, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Approximate Posterior")
+            samples_aux, energy_list, energy_list_names, x, y = self.get_all_energies(mu_q)
+            plot_contour(samples_aux, energy_list, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Approximate Posterior")
 
     def get_all_energies(self, samples,):
-        min_x = min(-3, samples.flatten(1)[:,0].min().item())
-        max_x = max(3, samples.flatten(1)[:,0].max().item())
-        min_y = min(-3, samples.flatten(1)[:,1].min().item())
-        max_y = max(3, samples.flatten(1)[:,1].max().item())
+        samples_mean = samples.mean(0)
+        samples_std = samples.std(0)
+        min_x = min(-3, samples_mean[0].min().item() - 1*samples_std[0].item())
+        max_x = max(3, samples_mean[0].max().item()+ 1*samples_std[0].item())
+        min_y = min(-3, samples_mean[1].min().item() - 1*samples_std[1].item())
+        max_y = max(3, samples_mean[1].max().item()+ 1*samples_std[1].item())
+        tensor_min = torch.cat([torch.full_like(samples[:,0,None], min_x),torch.full_like(samples[:,1, None], min_y)], dim=1)
+        tensor_max = torch.cat([torch.full_like(samples[:,0,None], max_x),torch.full_like(samples[:,1, None], max_y)], dim=1)
+        samples = torch.where(samples < tensor_min, tensor_min, samples)
+        samples = torch.where(samples > tensor_max, tensor_max, samples)
+        # print(samples[:,0].min().item(), samples[:,0].max().item(), samples[:,1].min().item(), samples[:,1].max().item())
+        # print(min_x, max_x, min_y, max_y)
+        # assert samples[:,0].min().item() >= min_x
+        # assert samples[:,0].max().item() <= max_x
+        # assert samples[:,1].min().item() >= min_y
+        # assert samples[:,1].max().item() <= max_y
         grid_coarseness = self.cfg.trainer.grid_coarseness
         device = self.cfg.trainer.device
-
 
 
         x = torch.linspace(min_x, max_x, grid_coarseness)
@@ -391,11 +381,11 @@ class AbstractTrainer:
         xy = np.concatenate([xx.reshape(-1, 1), yy.reshape(-1, 1)], axis=1)
         xy = torch.from_numpy(xy).float().reshape((grid_coarseness**2, self.cfg.trainer.nz, 1, 1)).to(device)
         energy_base_dist = - self.base_dist.log_prob(xy.flatten(1)).reshape(grid_coarseness**2,-1).sum(1).reshape(grid_coarseness, grid_coarseness)
-        energy_trick = self.sampler_prior.actual_energy(xy, self.energy).reshape(grid_coarseness**2,-1).sum(1).reshape(grid_coarseness, grid_coarseness)
-        energy_no_trick = self.sampler_prior_no_trick.actual_energy(xy, self.energy).reshape(grid_coarseness**2,-1).sum(1).reshape(grid_coarseness, grid_coarseness)
         energy_extra_prior = -self.prior.log_prob(xy).reshape(grid_coarseness**2,-1).sum(1).reshape(grid_coarseness, grid_coarseness)
         just_energy = self.energy(xy).reshape(grid_coarseness**2,-1).sum(1).reshape(grid_coarseness, grid_coarseness)
-        energy_list = [energy_base_dist, energy_trick, energy_no_trick, energy_extra_prior, just_energy]
-        energy_list_names = ["Base Distribution", "EBM Prior", "EBM Prior No Trick", "Extra Prior", "Just EBM"]
+        energy_prior = just_energy + energy_base_dist
 
-        return energy_list, energy_list_names, x, y
+        energy_list = [energy_base_dist, energy_prior, energy_extra_prior, just_energy]
+        energy_list_names = ["Base Distribution", "EBM Prior", "Extra Prior", "Just EBM"]
+
+        return samples, energy_list, energy_list_names, x, y

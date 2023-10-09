@@ -46,8 +46,6 @@ class Config:
     regularization: BaseRegularizationConfig = MISSING
     sampler_prior: BaseLangevinSampler = MISSING
     sampler_posterior: BaseLangevinSampler = MISSING
-    sampler_prior_no_trick: BaseLangevinSampler = MISSING
-    sampler_posterior_no_trick: BaseLangevinSampler = MISSING
     optim_encoder: BaseOptimConfig = MISSING
     optim_energy: BaseOptimConfig = MISSING
     optim_generator: BaseOptimConfig = MISSING

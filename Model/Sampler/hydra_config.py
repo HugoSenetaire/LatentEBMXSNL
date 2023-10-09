@@ -16,6 +16,4 @@ class BaseLangevinSampler:
 def store_base_langevin_sampler(cs: ConfigStore):
     cs.store(group="sampler_prior", name="base_langevin_sampler", node=BaseLangevinSampler)
     cs.store(group="sampler_posterior", name="base_langevin_sampler", node=BaseLangevinSampler)
-    cs.store(group="sampler_prior_no_trick", name="base_langevin_sampler", node=BaseLangevinSampler)
-    cs.store(group="sampler_posterior_no_trick", name="base_langevin_sampler", node=BaseLangevinSampler)
 
