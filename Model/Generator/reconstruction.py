@@ -72,7 +72,7 @@ class BernoulliLossReconstruction(LossReconstruction):
         p = param.flatten(1)
         x = x.flatten(1)
         if torch.isnan(p).any():
-            raise ValueError
+            raise ValueError("p is nan")
         return torch.sum(-x*torch.log(p+1e-8) - (1-x)*torch.log(1-p+1e-8), dim=1)
 
     def sample(self, param, return_mean = False):
