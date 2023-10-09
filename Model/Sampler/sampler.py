@@ -30,6 +30,14 @@ class SampleLangevinPrior(nn.Module):
         self.K = K
         self.a = a
         self.trick = trick
+
+    def actual_energy(self, z, E):
+        if self.trick :
+            en = E(z)+torch.log(abs(z))
+        else :
+            en = E(z)+ torch.norm(z, dim=1)
+
+        return en
     
     def forward(self, z, E):
         z = z.clone().detach().requires_grad_(True)
@@ -48,13 +56,22 @@ class SampleLangevinPosterior(nn.Module):
         self.K = K
         self.a = a
         self.trick = trick
+
+    def actual_energy(self, z, E, G,):
+        x_hat = G(z)
+        if self.trick :
+            en = E(z) + torch.log(abs(z)) + G.get_loss(z)
+        else :
+            en = E(z)+ torch.norm(z, dim=1)
+
+        return en
     
-    def forward(self, z, x, G, E, loss_reconstruction):
+    def forward(self, z, x, G, E,):
         z = z.clone().detach().requires_grad_(True)
         for i in range(self.K):
             x_hat = G(z)
             # g_log_lkhd = 1.0 / (2.0 * llhd_sigma * llhd_sigma) * mse(x_hat, x)
-            g_log_lkhd = loss_reconstruction(x_hat, x).mean(dim=0)
+            g_log_lkhd = G.get_loss(x_hat, x).mean(dim=0)
             grad_g = t.autograd.grad(g_log_lkhd, z)[0]
             en = E(z)
             grad_e = t.autograd.grad(en.sum(), z)[0]

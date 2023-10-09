@@ -34,6 +34,7 @@ class BaseTrainerConfig:
     multiple_sample_val_SNIS: int = 100
     multiple_sample_val: int = 100
     nb_sample_partition_estimate_val: int = 100
+    grid_coarseness : int = 100
 
     device : str = "cuda"
 

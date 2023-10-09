@@ -5,6 +5,7 @@ import tqdm
 import time
 import wandb
 import os
+import numpy as np
 
 from omegaconf import OmegaConf
 
@@ -15,7 +16,7 @@ from Model.Sampler.sampler_previous import sample_langevin_posterior, sample_lan
 from ..Optim import get_optimizer, grad_clipping
 from ..Prior import get_prior
 from ..Sampler.sampler import SampleLangevinPosterior, SampleLangevinPrior
-from ..Utils.log_utils import log, draw
+from ..Utils.log_utils import log, draw, get_extremum, plot_contour
 
 class AbstractTrainer:
     def __init__(
@@ -86,6 +87,7 @@ class AbstractTrainer:
             # Save
             if i % self.cfg.trainer.save_images_every == 0:
                 self.draw_samples(x, i)
+                self.plot_latent(i)
 
             # Eval
             if i % self.cfg.trainer.val_every == 0 and val_data is not None:
@@ -300,38 +302,100 @@ class AbstractTrainer:
         batch_save = min(64, x.shape[0])
         z_e_0, z_g_0 = self.base_dist.sample((batch_save, self.cfg.trainer.nz, 1, 1)), self.base_dist.sample((batch_save, self.cfg.trainer.nz, 1, 1))
     
-        z_e_k = sample_langevin_prior(z_e_0,self.energy, self.cfg.sampler_prior.K, self.cfg.sampler_prior.a)
-        z_e_k_2 = sample_langevin_prior_notrick(z_e_0,self.energy, self.cfg.sampler_prior.K, self.cfg.sampler_prior.a)
+        z_e_k = self.sampler_prior(z_e_0,self.energy,)
+        z_e_k_2 = self.sampler_prior_no_trick(z_e_0,self.energy,)
 
-        z_g_k = sample_langevin_posterior(z_g_0,x[:batch_save],self.generator,self.energy,self.cfg.sampler_posterior.K,self.cfg.sampler_posterior.a,self.generator.get_loss,)
-        z_g_k_2 = sample_langevin_posterior_notrick(z_g_0,x[:batch_save],self.generator,self.energy,self.cfg.sampler_posterior.K,self.cfg.sampler_posterior.a,self.generator.get_loss,)
+        z_g_k = self.sampler_posterior(z_g_0,x[:batch_save],self.generator,self.energy,)
+        z_g_k_2 = self.sampler_posterior_no_trick(z_g_0,x[:batch_save],self.generator,self.energy,)
 
         x_base, mu_base =self.generator.sample(z_e_0, return_mean=True)
-        draw(x_base.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="sample_base")
-        draw(mu_base.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="mean_base")
+        draw(x_base.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleBaseDistribution")
+        draw(mu_base.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="MeanBaseDistribution")
     
         x_prior, mu_prior =self.generator.sample(z_e_k, return_mean=True)
-        draw(x_prior.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="sample_prior")
-        draw(mu_prior.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="mean_prior")
+        draw(x_prior.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleEBMPrior")
+        draw(mu_prior.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="MeanEBMPrior")
     
         x_prior_2, mu_prior_2 =self.generator.sample(z_e_k_2, return_mean=True)
-        draw(x_prior_2.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="sample_prior_no_trick")
-        draw(mu_prior_2.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="mean_prior_no_trick")
+        draw(x_prior_2.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleEBMPriorNoTrick")
+        draw(mu_prior_2.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="MeanEBMPriorNoTrick")
         
         x_posterior, mu_posterior =self.generator.sample(z_g_k, return_mean=True)
-        draw(x_posterior.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="sample_posterior")
-        draw(mu_posterior.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="mean_posterior")
+        draw(x_posterior.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleEBMPosterior")
+        draw(mu_posterior.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="MeanEBMPosterior")
 
         x_posterior_2, mu_posterior_2 =self.generator.sample(z_g_k_2, return_mean=True)
-        draw(x_posterior_2.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="sample_posterior_no_trick")
-        draw(mu_posterior_2.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="mean_posterior_no_trick")
+        draw(x_posterior_2.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleEBMPosteriorNoTrick")
+        draw(mu_posterior_2.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="MeanEBMPosteriorNoTrick")
 
         x_reconstruction, mu_reconstruction =self.generator.sample(self.encoder(x[:batch_save]).chunk(2, 1)[0].reshape(-1, self.cfg.trainer.nz, 1, 1), return_mean=True)
-        draw(x_reconstruction.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="sample_reconstruction")
-        draw(mu_reconstruction.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="mean_reconstruction")
+        draw(x_reconstruction.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleReconstruction")
+        draw(mu_reconstruction.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="MeanReconstruction")
        
         extra_prior_samples = self.prior.sample(batch_save).reshape(batch_save, self.cfg.trainer.nz, 1, 1).to(self.cfg.trainer.device)
         x_prior, mu_prior = self.generator.sample(extra_prior_samples, return_mean=True)
-        draw(x_prior.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="sample_prior_extra")
-        draw(mu_prior.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="mean_prior_extra")
+        draw(x_prior.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleExtraPrior")
+        draw(mu_prior.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="MeanExtraPrior")
 
+
+    def plot_latent(self, step):
+        if self.cfg.trainer.nz != 2:
+            pass
+        else :
+            data = self.sampler.sample_p_data(1000).to(self.cfg.trainer.device)
+
+            len_samples = min(1000, data.shape[0])
+            mu_q, log_var_q = self.encoder(data[:len_samples]).chunk(2,1)
+            z_e_0, z_g_0 = self.base_dist.sample((len_samples, self.cfg.trainer.nz, 1, 1)), self.base_dist.sample((len_samples, self.cfg.trainer.nz, 1, 1))
+            z_e_k = self.sampler_prior(z_e_0,self.energy,)
+            z_e_k_2 = self.sampler_prior_no_trick(z_e_0,self.energy,)
+            z_g_k = self.sampler_posterior(z_g_0,data[:len_samples],self.generator,self.energy,)
+            z_g_k_2 = self.sampler_posterior_no_trick(z_g_0,data[:len_samples],self.generator,self.energy,)
+
+
+
+            energy_list, energy_list_names, x, y = self.get_all_energies(z_e_0)
+            plot_contour(z_e_0, energy_list, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Base Distribution")
+
+            energy_list, energy_list_names, x, y = self.get_all_energies(z_e_k)
+            plot_contour(z_e_k, energy_list, energy_list_names, x, y, step=step, logger=self.logger, title="Latent EBM Prior")
+
+            energy_list, energy_list_names, x, y = self.get_all_energies(z_e_k_2)
+            plot_contour(z_e_k_2, energy_list, energy_list_names, x, y, step=step, logger=self.logger, title="Latent EBM Prior No Trick")
+
+            energy_list, energy_list_names, x, y = self.get_all_energies(z_g_0)
+            plot_contour(z_g_k, energy_list, energy_list_names, x, y, step=step, logger=self.logger, title="Latent EBM Posterior")
+
+            energy_list, energy_list_names, x, y = self.get_all_energies(z_g_k_2)
+            plot_contour(z_g_k_2, energy_list, energy_list_names, x, y, step=step, logger=self.logger, title="Latent EBM Posterior No Trick")
+
+            energy_list, energy_list_names, x, y = self.get_all_energies(self.prior.sample(len_samples).reshape(len_samples, self.cfg.trainer.nz, 1, 1).to(self.cfg.trainer.device))
+            plot_contour(z_e_0, energy_list, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Extra Prior")
+
+            energy_list, energy_list_names, x, y = self.get_all_energies(mu_q)
+            plot_contour(mu_q, energy_list, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Approximate Posterior")
+
+    def get_all_energies(self, samples,):
+        min_x = min(-3, samples.flatten(1)[:,0].min().item())
+        max_x = max(3, samples.flatten(1)[:,0].max().item())
+        min_y = min(-3, samples.flatten(1)[:,1].min().item())
+        max_y = max(3, samples.flatten(1)[:,1].max().item())
+        grid_coarseness = self.cfg.trainer.grid_coarseness
+        device = self.cfg.trainer.device
+
+
+
+        x = torch.linspace(min_x, max_x, grid_coarseness)
+        y = torch.linspace(min_y, max_y, grid_coarseness)
+        xx, yy = torch.meshgrid(x, y)
+        xy = np.concatenate([xx.reshape(-1, 1), yy.reshape(-1, 1)], axis=1)
+        xy = torch.from_numpy(xy).float().reshape((grid_coarseness**2, self.cfg.trainer.nz, 1, 1)).to(device)
+        energy_base_dist = - self.base_dist.log_prob(xy.flatten(1)).reshape(grid_coarseness**2,-1).sum(1).reshape(grid_coarseness, grid_coarseness)
+        energy_trick = self.sampler_prior.actual_energy(xy, self.energy).reshape(grid_coarseness**2,-1).sum(1).reshape(grid_coarseness, grid_coarseness)
+        energy_no_trick = self.sampler_prior_no_trick.actual_energy(xy, self.energy).reshape(grid_coarseness**2,-1).sum(1).reshape(grid_coarseness, grid_coarseness)
+        energy_extra_prior = -self.prior.log_prob(xy).reshape(grid_coarseness**2,-1).sum(1).reshape(grid_coarseness, grid_coarseness)
+        just_energy = self.energy(xy).reshape(grid_coarseness**2,-1).sum(1).reshape(grid_coarseness, grid_coarseness)
+        energy_list = [energy_base_dist, energy_trick, energy_no_trick, energy_extra_prior, just_energy]
+        energy_list_names = ["Base Distribution", "EBM Prior", "EBM Prior No Trick", "Extra Prior", "Just EBM"]
+
+        return energy_list, energy_list_names, x, y
