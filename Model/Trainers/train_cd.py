@@ -1,8 +1,6 @@
 import math
 
 from ..Regularization.regularizer_ebm import regularization
-from Model.Sampler.sampler_previous import sample_langevin_posterior, sample_langevin_prior
-
 from .abstract_trainer import AbstractTrainer
 
 
@@ -13,9 +11,9 @@ class ContrastiveDivergence(AbstractTrainer):
         super().__init__(cfg, )
         
     def train_step(self, x, step):
-        z_e_0, z_g_0 = self.base_dist.sample((self.cfg.dataset.batch_size,self.cfg.trainer.nz,1,1)), self.base_dist.sample((self.cfg.dataset.batch_size,self.cfg.trainer.nz,1,1))
-        z_e_k = self.sampler_prior(z_e_0,self.energy,)
-        z_g_k = self.sampler_posterior(z_g_0, x,self.generator,self.energy, )
+        z_e_0, z_g_0 = self.base_dist.sample(self.cfg.dataset.batch_size), self.base_dist.sample(self.cfg.dataset.batch_size)
+        z_e_k = self.sampler_prior(z_e_0, self.energy, self.base_dist,)
+        z_g_k = self.sampler_posterior(z_g_0, x, self.generator, self.energy, self.base_dist,)
 
 
         self.opt_generator.zero_grad()

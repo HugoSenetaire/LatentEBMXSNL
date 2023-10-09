@@ -2,9 +2,7 @@ import math
 
 import torch
 
-from ..Regularization.regularizer_ebm import regularization
-from Model.Sampler.sampler_previous import (sample_langevin_posterior, sample_langevin_prior,
-                     sample_p_0)
+from ..Regularization import regularization, regularization_encoder
 
 from .abstract_trainer import AbstractTrainer
 
@@ -16,9 +14,9 @@ class ContrastiveDivergenceLogTrick(AbstractTrainer):
 
     def train_step(self, x, step):
 
-        z_e_0, z_g_0 = self.base_dist.sample((self.cfg.dataset.batch_size,self.cfg.trainer.nz,1,1)), self.base_dist.sample((self.cfg.dataset.batch_size,self.cfg.trainer.nz,1,1))
-        z_e_k = self.sampler_prior(z_e_0,self.energy,)
-        z_g_k = self.sampler_posterior(z_g_0, x,self.generator,self.energy,)
+        z_e_0, z_g_0 = self.base_dist.sample(self.cfg.dataset.batch_size), self.base_dist.sample(self.cfg.dataset.batch_size)
+        z_e_k = self.sampler_prior(z_e_0, self.energy, self.base_dist,)
+        z_g_k = self.sampler_posterior(z_g_0, x, self.generator, self.energy, self.base_dist,)
 
 
         self.opt_generator.zero_grad()
@@ -32,15 +30,15 @@ class ContrastiveDivergenceLogTrick(AbstractTrainer):
 
         self.opt_energy.zero_grad()
         # en_pos, en_neg = E(z_g_k.detach()).mean(), E(z_e_k.detach()).mean()
-        energy_posterior = self.energy(z_g_k.detach()).flatten(1).sum(1)
+        energy_posterior = self.energy(z_g_k.detach())
         z_proposal = self.proposal.sample(z_g_k.shape)
-        energy_proposal = self.energy(z_proposal.detach()).flatten(1).sum(1)
-        base_dist_z_proposal = self.base_dist.log_prob(z_proposal.flatten(1)).sum(1)
-        base_dist_z_posterior = self.base_dist.log_prob(z_g_k.flatten(1)).sum(1)
-        base_dist_z_base_dist = self.base_dist.log_prob(z_e_0.flatten(1)).sum(1)
-        proposal_z_proposal = self.proposal.log_prob(z_proposal.flatten(1)).sum(1)
-        proposal_z_posterior = self.proposal.log_prob(z_g_k.flatten(1)).sum(1)
-        proposal_z_base_dist = self.proposal.log_prob(z_e_0.flatten(1)).sum(1)
+        energy_proposal = self.energy(z_proposal.detach())
+        base_dist_z_proposal = self.base_dist.log_prob(z_proposal)
+        base_dist_z_posterior = self.base_dist.log_prob(z_g_k)
+        base_dist_z_base_dist = self.base_dist.log_prob(z_e_0)
+        proposal_z_proposal = self.proposal.log_prob(z_proposal)
+        proposal_z_posterior = self.proposal.log_prob(z_g_k)
+        proposal_z_base_dist = self.proposal.log_prob(z_e_0)
 
 
         log_partition_estimate = torch.logsumexp(-energy_proposal,0) - math.log(energy_proposal.shape[0])

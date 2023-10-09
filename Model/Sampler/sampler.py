@@ -31,17 +31,17 @@ class SampleLangevinPrior(nn.Module):
         self.a = a
         self.trick = trick
 
-    def actual_energy(self, z, E):
-        dist = torch.distributions.normal.Normal(0, 1)
-        en = E(z) - dist.log_prob(z).sum(dim=1)
+    def actual_energy(self, z, energy, base_dist):
+        en = energy(z) - base_dist.log_prob(z).reshape(z.shape[0])
         return en
     
-    def forward(self, z, E):
+    def forward(self, z, energy, base_dist):
         z = z.clone().detach().requires_grad_(True)
         for i in range(self.K):
-            en = E(z)
+            en = energy(z).squeeze() - base_dist.log_prob(z).squeeze()
             z_grad = t.autograd.grad(en.sum(), z)[0]
-            z.data = z.data - 0.5 * self.a * self.a * (z_grad + z.data) + self.a * t.randn_like(z).data
+            z.data = z.data - 0.5 * self.a * self.a * z_grad + self.a * t.randn_like(z).data
+
         return z.detach()
     
 class SampleLangevinPosterior(nn.Module):
@@ -50,19 +50,19 @@ class SampleLangevinPosterior(nn.Module):
         self.K = K
         self.a = a
 
-    def actual_energy(self, z, E, G,):
-        en = E(z)+ torch.norm(z, dim=1)
+    def actual_energy(self, z, energy, generator,):
+        en = energy(z)+ torch.norm(z, dim=1)
         return en
     
-    def forward(self, z, x, G, E,):
+    def forward(self, z, x, generator, energy, base_dist):
         z = z.clone().detach().requires_grad_(True)
         for i in range(self.K):
-            x_hat = G(z)
-            g_log_lkhd = G.get_loss(x_hat, x).mean(dim=0)
+            x_hat = generator(z)
+            g_log_lkhd = generator.get_loss(x_hat, x).mean(dim=0)
             grad_g = t.autograd.grad(g_log_lkhd, z)[0]
-            en = E(z)
+            en = energy(z).squeeze() - base_dist.log_prob(z).reshape(z.shape[0])
             grad_e = t.autograd.grad(en.sum(), z)[0]
-            z.data = z.data - 0.5 * self.a * self.a * (grad_g + grad_e + z.data) + self.a * t.randn_like(z).data
+            z.data = z.data - 0.5 * self.a * self.a * (grad_g + grad_e) + self.a * t.randn_like(z).data
         return z.detach()
 
 

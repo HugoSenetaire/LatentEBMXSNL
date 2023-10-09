@@ -12,10 +12,9 @@ from omegaconf import OmegaConf
 from ..Generator import AbstractGenerator
 from ..Encoder import AbstractEncoder
 from ..Energy import get_energy_network
-from Model.Sampler.sampler_previous import sample_langevin_posterior, sample_langevin_prior, Sampler, sample_langevin_prior_notrick, sample_langevin_posterior_notrick
 from ..Optim import get_optimizer, grad_clipping
-from ..Prior import get_prior
-from ..Sampler.sampler import SampleLangevinPosterior, SampleLangevinPrior
+from ..Prior import get_prior, GaussianPrior
+from ..Sampler.sampler import SampleLangevinPosterior, SampleLangevinPrior, Sampler
 from ..Utils.log_utils import log, draw, get_extremum, plot_contour
 
 class AbstractTrainer:
@@ -32,14 +31,12 @@ class AbstractTrainer:
         self.encoder = AbstractEncoder(cfg, cfg.trainer.nz, cfg.dataset.nc)
 
         self.sampler_prior = SampleLangevinPrior(self.cfg.sampler_prior.K, self.cfg.sampler_prior.a,)
-        self.sampler_posterior = SampleLangevinPosterior(self.cfg.sampler_posterior.K, self.cfg.sampler_posterior.a,)
+        self.sampler_posterior = SampleLangevinPosterior(self.cfg.sampler_posterior.K, self.cfg.sampler_posterior.a, )
         
         self.proposal = torch.distributions.normal.Normal(
             torch.tensor(cfg.trainer.proposal_mean, device=cfg.trainer.device, dtype=torch.float32),
             torch.tensor(cfg.trainer.proposal_std, device=cfg.trainer.device, dtype=torch.float32),)
-        self.base_dist = torch.distributions.normal.Normal(
-            torch.tensor(0, device=cfg.trainer.device, dtype=torch.float32),
-            torch.tensor(1, device=cfg.trainer.device, dtype=torch.float32),)
+        self.base_dist = GaussianPrior(cfg)
         self.log_var_p = torch.tensor(0, device=cfg.trainer.device, dtype=torch.float32)
         if cfg.trainer.log_dir is None:
             cfg.trainer.log_dir = os.path.join(cfg.machine.root, "logs",)
@@ -102,20 +99,18 @@ class AbstractTrainer:
         self.opt_energy.zero_grad()
         self.opt_encoder.zero_grad()
 
-        z_e_0, z_g_0 = self.base_dist.sample(
-            (self.cfg.dataset.batch_size, self.cfg.trainer.nz, 1, 1)
-        ), self.base_dist.sample((self.cfg.dataset.batch_size, self.cfg.trainer.nz, 1, 1))
+        z_e_0, z_g_0 = self.base_dist.sample(self.cfg.dataset.batch_size), self.base_dist.sample(self.cfg.dataset.batch_size)
         mu_q, log_var_q = self.encoder(x).chunk(2, 1)
 
         # Reparametrization trick
         std_q = torch.exp(0.5 * log_var_q)
         eps = torch.randn_like(mu_q)
-        z_q = (eps.mul(std_q).add_(mu_q)).reshape(-1, self.cfg.trainer.nz, 1, 1)
+        z_q = (eps.mul(std_q).add_(mu_q)).reshape(x.shape[0], self.cfg.trainer.nz,)
 
         # Reconstruction loss
         x_hat = self.generator(z_q)
         mse = nn.MSELoss(reduction="sum")
-        loss_g = self.generator.get_loss(x_hat, x).mean(dim=0)
+        loss_g = self.generator.get_loss(x_hat, x).reshape(x.shape[0]).mean(dim=0)
 
         # KL loss
         KL_loss = 0.5 * (
@@ -173,17 +168,17 @@ class AbstractTrainer:
             while k*self.cfg.dataset.batch_size_val<max_len:
                 x = val_data[k*self.cfg.dataset.batch_size_val:(k+1)*self.cfg.dataset.batch_size_val].to(self.cfg.trainer.device)
                 x_expanded = x.unsqueeze(0).expand(self.cfg.trainer.multiple_sample_val_SNIS,x.shape[0],self.cfg.dataset.nc,self.cfg.dataset.img_size,self.cfg.dataset.img_size).flatten(0,1)
+                expanded_batch_size = x.shape[0]*self.cfg.trainer.multiple_sample_val_SNIS
                 
                 mu_q, log_var_q = self.encoder(x_expanded).chunk(2,1)
                 std_q = torch.exp(0.5*log_var_q)
-                
                 epsilon = torch.randn_like(mu_q)
-                z_q = (epsilon.mul(std_q).add_(mu_q)).reshape(self.cfg.trainer.multiple_sample_val_SNIS*x.shape[0], self.cfg.trainer.nz, 1, 1)
+                z_q = (epsilon.mul(std_q).add_(mu_q)).reshape(expanded_batch_size, self.cfg.trainer.nz,)
                 x_hat = self.generator(z_q)
 
-                energy_prior = self.energy(z_q).flatten(1).sum(1).reshape(self.cfg.trainer.multiple_sample_val_SNIS,x.shape[0])
-                base_dist = self.base_dist.log_prob(z_q.flatten(1)).sum(1).reshape(self.cfg.trainer.multiple_sample_val_SNIS,x.shape[0])
-                multi_gaussian = self.prior.log_prob(z_q).flatten(1).sum(1).reshape(self.cfg.trainer.multiple_sample_val_SNIS,x.shape[0])
+                energy_prior = self.energy(z_q).reshape(self.cfg.trainer.multiple_sample_val_SNIS,x.shape[0])
+                base_dist = self.base_dist.log_prob(z_q).reshape(self.cfg.trainer.multiple_sample_val_SNIS,x.shape[0])
+                multi_gaussian = self.prior.log_prob(z_q).reshape(self.cfg.trainer.multiple_sample_val_SNIS,x.shape[0])
 
 
                 posterior_distribution = torch.distributions.normal.Normal(mu_q, std_q).log_prob(z_q.flatten(1)).sum(1).reshape(self.cfg.trainer.multiple_sample_val_SNIS,x.shape[0])
@@ -222,7 +217,7 @@ class AbstractTrainer:
 
     def eval(self, val_data, step, name="val/"):
         with torch.no_grad():
-            z_e_0 = self.base_dist.sample((self.cfg.trainer.nb_sample_partition_estimate_val, self.cfg.trainer.nz, 1, 1))
+            z_e_0 = self.base_dist.sample(self.cfg.trainer.nb_sample_partition_estimate_val,)
             energy_base_dist = self.energy(z_e_0).flatten(1).sum(1)
             log_partition_estimate = torch.logsumexp(-energy_base_dist,0) - math.log(energy_base_dist.shape[0])
             log(step, {"log_z":log_partition_estimate.item()}, logger=self.logger, name=name)
@@ -236,13 +231,14 @@ class AbstractTrainer:
             while k* self.cfg.dataset.batch_size<max_len:
                 x = val_data[k*self.cfg.dataset.batch_size:(k+1)*self.cfg.dataset.batch_size].to(self.cfg.trainer.device)
                 x_expanded = x.unsqueeze(0).expand(self.cfg.trainer.multiple_sample_val,x.shape[0],self.cfg.dataset.nc,self.cfg.dataset.img_size,self.cfg.dataset.img_size).flatten(0,1)
+                expanded_batch_size = x.shape[0]*self.cfg.trainer.multiple_sample_val
                 dic = {}
                 mu_q, log_var_q = self.encoder(x_expanded).chunk(2,1)
                 std_q = torch.exp(0.5*log_var_q)
 
                 # Reparam trick
                 eps = torch.randn_like(mu_q)
-                z_q = (eps.mul(std_q).add_(mu_q)).reshape(self.cfg.trainer.multiple_sample_val*x.shape[0], self.cfg.trainer.nz, 1, 1)
+                z_q = (eps.mul(std_q).add_(mu_q)).reshape(expanded_batch_size, self.cfg.trainer.nz,)
                 x_hat = self.generator(z_q)
 
                 # Reconstruction loss :
@@ -253,19 +249,16 @@ class AbstractTrainer:
                 KL_loss = KL_loss.sum(dim=1).reshape(self.cfg.trainer.multiple_sample_val,x.shape[0]).mean(dim=0)
 
                 # Entropy posterior
-                entropy_posterior = torch.sum(0.5 * (math.log(2 * math.pi) + log_var_q + 1), dim=1
-                                              ).reshape(self.cfg.trainer.multiple_sample_val,x.shape[0]).mean(dim=0)
+                entropy_posterior = torch.sum(0.5 * (math.log(2 * math.pi) + log_var_q + 1), dim=1).reshape(self.cfg.trainer.multiple_sample_val,x.shape[0]).mean(dim=0)
 
                 # Gaussian mixture
                 log_prob_mixture = self.prior.log_prob(z_q)
-                try :
-                    log_prob_mixture = log_prob_mixture.flatten(1).sum(1).reshape(self.cfg.trainer.multiple_sample_val,x.shape[0]).mean(dim=0)
-                except IndexError:
-                    log_prob_mixture = log_prob_mixture.reshape(self.cfg.trainer.multiple_sample_val,x.shape[0]).mean(dim=0)
-                    print("IndexError")
+
+                log_prob_mixture = log_prob_mixture.reshape(self.cfg.trainer.multiple_sample_val,x.shape[0]).mean(dim=0)
+               
                 # Energy :
-                energy_approximate = self.energy(z_q).flatten(1).sum(1).reshape(self.cfg.trainer.multiple_sample_val,x.shape[0])
-                base_dist_z_approximate = self.base_dist.log_prob(z_q.flatten(1)).sum(1).reshape(self.cfg.trainer.multiple_sample_val,x.shape[0])
+                energy_approximate = self.energy(z_q).reshape(self.cfg.trainer.multiple_sample_val,x.shape[0])
+                base_dist_z_approximate = self.base_dist.log_prob(z_q).reshape(self.cfg.trainer.multiple_sample_val,x.shape[0])
 
 
                 loss_ebm = (energy_approximate + log_partition_estimate.exp() - 1).reshape(self.cfg.trainer.multiple_sample_val,x.shape[0]).mean(dim=0)
@@ -298,11 +291,11 @@ class AbstractTrainer:
 
     def draw_samples(self, x, step):
         batch_save = min(64, x.shape[0])
-        z_e_0, z_g_0 = self.base_dist.sample((batch_save, self.cfg.trainer.nz, 1, 1)), self.base_dist.sample((batch_save, self.cfg.trainer.nz, 1, 1))
+        z_e_0, z_g_0 = self.base_dist.sample(batch_save), self.base_dist.sample(batch_save)
     
-        z_e_k = self.sampler_prior(z_e_0,self.energy,)
+        z_e_k = self.sampler_prior(z_e_0, self.energy, self.base_dist,)
 
-        z_g_k = self.sampler_posterior(z_g_0,x[:batch_save],self.generator,self.energy,)
+        z_g_k = self.sampler_posterior(z_g_0,x[:batch_save], self.generator, self.energy, self.base_dist,)
 
         x_base, mu_base =self.generator.sample(z_e_0, return_mean=True)
         draw(x_base.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleBaseDistribution")
@@ -334,8 +327,8 @@ class AbstractTrainer:
 
             len_samples = min(1000, data.shape[0])
             mu_q, log_var_q = self.encoder(data[:len_samples]).chunk(2,1)
-            z_e_0, z_g_0 = self.base_dist.sample((len_samples, self.cfg.trainer.nz, 1, 1)), self.base_dist.sample((len_samples, self.cfg.trainer.nz, 1, 1))
-            z_e_k = self.sampler_prior(z_e_0,self.energy,)
+            z_e_0, z_g_0 = self.base_dist.sample(len_samples), self.base_dist.sample(len_samples)
+            z_e_k = self.sampler_prior(z_e_0, self.energy, self.base_dist,)
 
 
 
@@ -357,32 +350,31 @@ class AbstractTrainer:
     def get_all_energies(self, samples,):
         samples_mean = samples.mean(0)
         samples_std = samples.std(0)
-        min_x = min(-3, samples_mean[0].min().item() - 1*samples_std[0].item())
-        max_x = max(3, samples_mean[0].max().item()+ 1*samples_std[0].item())
-        min_y = min(-3, samples_mean[1].min().item() - 1*samples_std[1].item())
-        max_y = max(3, samples_mean[1].max().item()+ 1*samples_std[1].item())
+        # min_x = min(-3, samples_mean[0].min().item() - 3*samples_std[0].item())
+        # max_x = max(3, samples_mean[0].max().item()+ 3*samples_std[0].item())
+        # min_y = min(-3, samples_mean[1].min().item() - 3*samples_std[1].item())
+        # max_y = max(3, samples_mean[1].max().item()+ 3*samples_std[1].item())
+        min_x = -10
+        max_x = 10
+        min_y = -10
+        max_y = 10
         tensor_min = torch.cat([torch.full_like(samples[:,0,None], min_x),torch.full_like(samples[:,1, None], min_y)], dim=1)
         tensor_max = torch.cat([torch.full_like(samples[:,0,None], max_x),torch.full_like(samples[:,1, None], max_y)], dim=1)
         samples = torch.where(samples < tensor_min, tensor_min, samples)
         samples = torch.where(samples > tensor_max, tensor_max, samples)
-        # print(samples[:,0].min().item(), samples[:,0].max().item(), samples[:,1].min().item(), samples[:,1].max().item())
-        # print(min_x, max_x, min_y, max_y)
-        # assert samples[:,0].min().item() >= min_x
-        # assert samples[:,0].max().item() <= max_x
-        # assert samples[:,1].min().item() >= min_y
-        # assert samples[:,1].max().item() <= max_y
         grid_coarseness = self.cfg.trainer.grid_coarseness
         device = self.cfg.trainer.device
 
 
-        x = torch.linspace(min_x, max_x, grid_coarseness)
-        y = torch.linspace(min_y, max_y, grid_coarseness)
-        xx, yy = torch.meshgrid(x, y)
+        x = np.linspace(min_x, max_x, grid_coarseness)
+        y = np.linspace(min_y, max_y, grid_coarseness)
+        xx, yy = np.meshgrid(x, y)
         xy = np.concatenate([xx.reshape(-1, 1), yy.reshape(-1, 1)], axis=1)
-        xy = torch.from_numpy(xy).float().reshape((grid_coarseness**2, self.cfg.trainer.nz, 1, 1)).to(device)
-        energy_base_dist = - self.base_dist.log_prob(xy.flatten(1)).reshape(grid_coarseness**2,-1).sum(1).reshape(grid_coarseness, grid_coarseness)
-        energy_extra_prior = -self.prior.log_prob(xy).reshape(grid_coarseness**2,-1).sum(1).reshape(grid_coarseness, grid_coarseness)
-        just_energy = self.energy(xy).reshape(grid_coarseness**2,-1).sum(1).reshape(grid_coarseness, grid_coarseness)
+        xy = torch.from_numpy(xy).float().to(device)
+
+        energy_base_dist = - self.base_dist.log_prob(xy).reshape(grid_coarseness,grid_coarseness,)
+        energy_extra_prior = - self.prior.log_prob(xy).reshape(grid_coarseness,grid_coarseness)
+        just_energy = self.energy(xy).reshape(grid_coarseness, grid_coarseness)
         energy_prior = just_energy + energy_base_dist
 
         energy_list = [energy_base_dist, energy_prior, energy_extra_prior, just_energy]
