@@ -1,11 +1,11 @@
 defaults:
   - base_config
-  - dataset : omniglot
+  - dataset : binary_mnist
   - encoder : conv_mnist
   - energy : energy_mnist
   - generator: conv_mnist
   - prior : gaussian
-  - regularization : l2_grad
+  - regularization : no_reg
   - sampler_prior : langevin
   - sampler_posterior : langevin
   - sampler_prior_no_trick : langevin
@@ -15,7 +15,7 @@ defaults:
   - optim_generator : adam
   - optim_prior : adam
   - machine : titans
-  - trainer: prior_training_detached
+  - trainer: contrastive_divergence
 
 
 
