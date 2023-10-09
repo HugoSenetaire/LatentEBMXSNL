@@ -14,6 +14,7 @@ class AbstractGenerator(nn.Module):
         self.activation = get_activation(cfg.generator.activation_name)
 
     def forward(self, z):
+        z = z.reshape(z.shape[0], self.cfg.trainer.nz, 1, 1,)
         param = self.network(z)
         if self.activation is not None:
             param = self.activation(param)
@@ -23,6 +24,7 @@ class AbstractGenerator(nn.Module):
         return self.reconstruction(param, x)
     
     def sample(self, z, return_mean=False):
+        z = z.reshape(z.shape[0], self.cfg.trainer.nz, 1, 1,)
         param = self.network(z)
         if self.activation is not None:
             param = self.activation(param)
