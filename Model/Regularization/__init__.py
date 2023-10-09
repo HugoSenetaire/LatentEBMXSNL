@@ -1,2 +1,2 @@
 from .regularizer_ebm import regularization
-
+from .regularizer_encoder import regularization_encoder

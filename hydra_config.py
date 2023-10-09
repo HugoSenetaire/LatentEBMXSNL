@@ -18,7 +18,7 @@ from Model.Sampler.hydra_config import store_base_langevin_sampler, BaseLangevin
 from Model.Trainers.hydra_config import store_base_trainer, BaseTrainerConfig
 from Model.Prior.hydra_config import store_base_prior, BasePriorConfig
 from Dataset.hydra_config import store_base_dataset, BaseDatasetConfig
-from Model.Regularization.hydra_config import store_base_regularization, BaseRegularizationConfig
+from Model.Regularization.hydra_config import store_base_regularization, BaseRegularizationConfig, store_base_regularization_encoder, BaseRegularizationEncoderConfig
 
 @dataclass
 class MachineConfig:
@@ -44,6 +44,7 @@ class Config:
     generator: BaseGeneratorConfig = MISSING
     prior : BasePriorConfig = MISSING
     regularization: BaseRegularizationConfig = MISSING
+    regularization_encoder: BaseRegularizationEncoderConfig = MISSING
     sampler_prior: BaseLangevinSampler = MISSING
     sampler_posterior: BaseLangevinSampler = MISSING
     optim_encoder: BaseOptimConfig = MISSING
@@ -90,6 +91,7 @@ def store_main():
     store_base_dataset(cs)
 
     store_base_regularization(cs)
+    store_base_regularization_encoder(cs)
 
 
 @hydra.main(version_base="1.1", config_name="conf", config_path="conf_mnist")

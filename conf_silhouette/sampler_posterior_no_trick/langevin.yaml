@@ -1,4 +1,0 @@
-defaults :
-  - base_langevin_sampler
-K : 100
-a : 1e-1
