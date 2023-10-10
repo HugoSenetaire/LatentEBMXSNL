@@ -5,7 +5,8 @@ defaults:
   - energy : energy_mnist
   - generator: conv_mnist
   - prior : gaussian
-  - regularization : l2_grad
+  - regularization : no_reg
+  - regularization_encoder : no_reg
   - sampler_prior : langevin
   - sampler_posterior : langevin
   - optim_encoder : adam

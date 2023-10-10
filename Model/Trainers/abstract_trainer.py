@@ -45,7 +45,7 @@ class AbstractTrainer:
             project="LatentEBM",
             config=OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True),
             dir=cfg.trainer.log_dir,
-            name= cfg.dataset.dataset_name + "_" + cfg.trainer.trainer_name + time.strftime("%Y%m%d-%H%M%S"),
+            name= str(cfg.trainer.nz)+ "_" + cfg.dataset.dataset_name + "_" + cfg.trainer.trainer_name + time.strftime("%Y%m%d-%H%M%S"),
         )
         self.n_iter = cfg.trainer.n_iter
         self.n_iter_pretrain = cfg.trainer.n_iter_pretrain
@@ -329,39 +329,60 @@ class AbstractTrainer:
             mu_q, log_var_q = self.encoder(data[:len_samples]).chunk(2,1)
             z_e_0, z_g_0 = self.base_dist.sample(len_samples), self.base_dist.sample(len_samples)
             z_e_k = self.sampler_prior(z_e_0, self.energy, self.base_dist,)
+            z_g_k = self.sampler_posterior(z_g_0, data[:len_samples], self.generator, self.energy, self.base_dist,)
 
 
 
-            samples_aux, energy_list, energy_list_names, x, y = self.get_all_energies(z_e_0)
-            plot_contour(samples_aux, energy_list, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Base Distribution")
+            energy_list_small_scale, energy_list_names, x, y = self.get_all_energies(z_e_0, min_x=-3, max_x=3)
+            samples_aux = self.cut_samples(z_e_0, min_x=-3, max_x=3)
+            plot_contour(samples_aux, energy_list_small_scale, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Base Distribution SC")
+            
+            samples_aux = self.cut_samples(z_e_k, min_x=-3, max_x=3)
+            plot_contour(samples_aux, energy_list_small_scale, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Prior SC")
 
-            samples_aux, energy_list, energy_list_names, x, y = self.get_all_energies(z_e_k)
-            plot_contour(samples_aux, energy_list, energy_list_names, x, y, step=step, logger=self.logger, title="Latent EBM Prior")
+            samples_aux = self.cut_samples(mu_q, min_x=-3, max_x=3)
+            plot_contour(samples_aux, energy_list_small_scale, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Approximate Posterior SC")
 
-            samples_aux, energy_list, energy_list_names, x, y = self.get_all_energies(z_g_0)
-            plot_contour(samples_aux, energy_list, energy_list_names, x, y, step=step, logger=self.logger, title="Latent EBM Posterior")
+            samples_aux = self.cut_samples(z_g_k, min_x=-3, max_x=3)
+            plot_contour(samples_aux, energy_list_small_scale, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Posterior SC")
 
-            samples_aux, energy_list, energy_list_names, x, y = self.get_all_energies(self.prior.sample(len_samples).reshape(len_samples, self.cfg.trainer.nz, 1, 1).to(self.cfg.trainer.device))
-            plot_contour(samples_aux, energy_list, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Extra Prior")
 
-            samples_aux, energy_list, energy_list_names, x, y = self.get_all_energies(mu_q)
-            plot_contour(samples_aux, energy_list, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Approximate Posterior")
+            energy_list_large_scale, energy_list_names, x, y = self.get_all_energies(z_e_0, min_x=-10, max_x=10)
+            samples_aux = self.cut_samples(z_e_0, min_x=-10, max_x=10)
+            plot_contour(samples_aux, energy_list_large_scale, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Base Distribution LC")
+            
+            samples_aux = self.cut_samples(z_e_k, min_x=-10, max_x=10)
+            plot_contour(samples_aux, energy_list_large_scale, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Prior LC")
 
-    def get_all_energies(self, samples,):
+            samples_aux = self.cut_samples(mu_q, min_x=-10, max_x=10)
+            plot_contour(samples_aux, energy_list_large_scale, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Approximate Posterior LC")
+
+            samples_aux = self.cut_samples(z_g_k, min_x=-10, max_x=10)
+            plot_contour(samples_aux, energy_list_large_scale, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Posterior LC")
+
+
+    def cut_samples(self, samples, min_x=-10, max_x =-10):
+        min_y = min_x
+        max_y = max_x
+        tensor_min = torch.cat([torch.full_like(samples[:,0,None], min_x),torch.full_like(samples[:,1, None], min_y)], dim=1)
+        tensor_max = torch.cat([torch.full_like(samples[:,0,None], max_x),torch.full_like(samples[:,1, None], max_y)], dim=1)
+        samples = torch.where(samples < tensor_min, tensor_min, samples)
+        samples = torch.where(samples > tensor_max, tensor_max, samples)
+        return samples
+
+
+    def get_all_energies(self, samples, min_x=-10, max_x=-10):
         samples_mean = samples.mean(0)
         samples_std = samples.std(0)
         # min_x = min(-3, samples_mean[0].min().item() - 3*samples_std[0].item())
         # max_x = max(3, samples_mean[0].max().item()+ 3*samples_std[0].item())
         # min_y = min(-3, samples_mean[1].min().item() - 3*samples_std[1].item())
         # max_y = max(3, samples_mean[1].max().item()+ 3*samples_std[1].item())
-        min_x = -10
-        max_x = 10
-        min_y = -10
-        max_y = 10
-        tensor_min = torch.cat([torch.full_like(samples[:,0,None], min_x),torch.full_like(samples[:,1, None], min_y)], dim=1)
-        tensor_max = torch.cat([torch.full_like(samples[:,0,None], max_x),torch.full_like(samples[:,1, None], max_y)], dim=1)
-        samples = torch.where(samples < tensor_min, tensor_min, samples)
-        samples = torch.where(samples > tensor_max, tensor_max, samples)
+        # min_x = -10
+        # max_x = 10
+        min_y = min_x
+        max_y = max_x
+        
         grid_coarseness = self.cfg.trainer.grid_coarseness
         device = self.cfg.trainer.device
 
@@ -380,4 +401,4 @@ class AbstractTrainer:
         energy_list = [energy_base_dist, energy_prior, energy_extra_prior, just_energy]
         energy_list_names = ["Base Distribution", "EBM Prior", "Extra Prior", "Just EBM"]
 
-        return samples, energy_list, energy_list_names, x, y
+        return energy_list, energy_list_names, x, y

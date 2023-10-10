@@ -37,8 +37,4 @@ def main(cfg):
 
 if __name__ == "__main__":
     hydra_config.store_main()
-
-
-    
-        
     main()
