@@ -13,6 +13,10 @@ defaults:
   - optim_energy : adam
   - optim_generator : adam
   - optim_prior : adam
+  - scheduler_encoder : exponential_lr
+  - scheduler_energy : exponential_lr
+  - scheduler_generator : exponential_lr
+  - scheduler_prior : exponential_lr
   - machine : titans
   - trainer: prior_training_detached
 

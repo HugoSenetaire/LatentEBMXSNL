@@ -13,6 +13,7 @@ from ..Generator import AbstractGenerator
 from ..Encoder import AbstractEncoder
 from ..Energy import get_energy_network
 from ..Optim import get_optimizer, grad_clipping
+from ..Optim.Schedulers import get_scheduler
 from ..Prior import get_prior, GaussianPrior
 from ..Sampler.sampler import SampleLangevinPosterior, SampleLangevinPrior
 from ..Utils.log_utils import log, draw, get_extremum, plot_contour
@@ -53,18 +54,21 @@ class AbstractTrainer:
         self.compile()
 
     def compile(self):
-
         self.generator.to(self.cfg.trainer.device)
         self.opt_generator = get_optimizer(self.cfg.optim_generator, self.generator)
+        self.sch_generator = get_scheduler(self.cfg.scheduler_generator, self.opt_generator)
 
         self.encoder.to(self.cfg.trainer.device)
         self.opt_encoder = get_optimizer( self.cfg.optim_encoder, self.encoder)
+        self.sch_encoder = get_scheduler(self.cfg.scheduler_encoder, self.opt_encoder)
         
         self.energy.to(self.cfg.trainer.device)
         self.opt_energy = get_optimizer(self.cfg.optim_energy, self.energy)
+        self.sch_energy = get_scheduler(self.cfg.scheduler_energy, self.opt_energy)
 
         self.prior.to(self.cfg.trainer.device)
         self.opt_prior = get_optimizer(self.cfg.optim_prior, self.prior)
+        self.sch_prior = get_scheduler(self.cfg.scheduler_prior, self.opt_prior)
 
 
 
@@ -75,6 +79,10 @@ class AbstractTrainer:
             try :
                 x = next(iterator)[0].to(self.cfg.trainer.device)
             except StopIteration:
+                self.sch_encoder.step()
+                self.sch_energy.step()
+                self.sch_generator.step()
+                self.sch_prior.step()
                 iterator = iter(train_dataloader)
                 x = next(iterator)[0].to(self.cfg.trainer.device)
             x = x.reshape(x.shape[0], self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size)

@@ -19,6 +19,7 @@ from Model.Trainers.hydra_config import store_base_trainer, BaseTrainerConfig
 from Model.Prior.hydra_config import store_base_prior, BasePriorConfig
 from Dataset.hydra_config import store_base_dataset, BaseDatasetConfig
 from Model.Regularization.hydra_config import store_base_regularization, BaseRegularizationConfig, store_base_regularization_encoder, BaseRegularizationEncoderConfig
+from Model.Optim.Schedulers.hydra_config import store_base_scheduler, BaseSchedulerConfig
 
 @dataclass
 class MachineConfig:
@@ -51,6 +52,10 @@ class Config:
     optim_energy: BaseOptimConfig = MISSING
     optim_generator: BaseOptimConfig = MISSING
     optim_prior: BaseOptimConfig = MISSING
+    scheduler_encoder: BaseSchedulerConfig = MISSING
+    scheduler_energy: BaseSchedulerConfig = MISSING
+    scheduler_generator: BaseSchedulerConfig = MISSING
+    scheduler_prior: BaseSchedulerConfig = MISSING
     trainer: BaseTrainerConfig = MISSING
     machine: MachineConfig = MISSING
 
@@ -83,6 +88,7 @@ def store_main():
     store_base_prior(cs)
 
     store_base_optim(cs)
+    store_base_scheduler(cs)
 
     store_base_langevin_sampler(cs)
 
@@ -92,6 +98,7 @@ def store_main():
 
     store_base_regularization(cs)
     store_base_regularization_encoder(cs)
+    
 
 
 @hydra.main(version_base="1.1", config_name="conf", config_path="conf_mnist")
