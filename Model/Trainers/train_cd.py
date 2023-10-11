@@ -19,6 +19,7 @@ class ContrastiveDivergence(AbstractTrainer):
         self.opt_generator.zero_grad()
         x_hat = self.generator(z_g_k.detach())
         loss_g = self.generator.get_loss(x_hat, x).mean(dim=0).mean()
+        mse_loss = self.mse(x_hat, x) / x.shape[0]
         loss_g.backward()
         self.opt_generator.step()
         self.opt_energy.zero_grad()
@@ -32,6 +33,7 @@ class ContrastiveDivergence(AbstractTrainer):
         dic_loss = {
             "loss_e": loss_e,
             "loss_g": loss_g,
+            "mse_loss": mse_loss,
             "en_pos": en_pos,
             "en_neg": en_neg,
             }
