@@ -56,7 +56,7 @@ def plot_contour(sample, energy_list, energy_list_names, x, y, title, logger, st
     energy = energy.detach().cpu().numpy()
     fig.colorbar(axs[k].contourf(x,y, energy,), ax=axs[k])
     if sample is not None :
-      axs[k].scatter(sample[:,0], sample[:,1], c="red", s=1, alpha=0.3)
+      axs[k].scatter(sample[:,0], sample[:,1], c="red", s=1, alpha=0.5)
     axs[k].set_title(energy_list_names[k])
   fig.suptitle(title)
   img = wandb.Image(fig, caption=title)

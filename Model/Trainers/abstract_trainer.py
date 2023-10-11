@@ -32,7 +32,8 @@ class AbstractTrainer:
 
         self.sampler_prior = SampleLangevinPrior(self.cfg.sampler_prior.K, self.cfg.sampler_prior.a,)
         self.sampler_posterior = SampleLangevinPosterior(self.cfg.sampler_posterior.K, self.cfg.sampler_posterior.a, )
-        
+        self.mse = nn.MSELoss(reduction="sum")
+        self.mse_test = nn.MSELoss(reduction='none')
         self.proposal = torch.distributions.normal.Normal(
             torch.tensor(cfg.trainer.proposal_mean, device=cfg.trainer.device, dtype=torch.float32),
             torch.tensor(cfg.trainer.proposal_std, device=cfg.trainer.device, dtype=torch.float32),)
@@ -109,7 +110,8 @@ class AbstractTrainer:
 
         # Reconstruction loss
         x_hat = self.generator(z_q)
-        mse = nn.MSELoss(reduction="sum")
+        mse_loss = self.mse(x_hat, x) / x.shape[0]
+
         loss_g = self.generator.get_loss(x_hat, x).reshape(x.shape[0]).mean(dim=0)
 
         # KL loss
@@ -129,6 +131,7 @@ class AbstractTrainer:
             "loss_g": loss_g.item(),
             "KL_loss": KL_loss.item(),
             "elbo": -loss_total.item(),
+            "mse_loss": mse_loss.item(),
         }
         self.opt_energy.step()
         self.opt_generator.step()
@@ -243,6 +246,8 @@ class AbstractTrainer:
 
                 # Reconstruction loss :
                 loss_g = self.generator.get_loss(x_hat, x_expanded).reshape(self.cfg.trainer.multiple_sample_val,x.shape[0]).mean(dim=0)
+                mse_loss = self.mse_test(x_hat, x_expanded).reshape(self.cfg.trainer.multiple_sample_val, x.shape[0], -1).sum(dim=2).mean(dim=0)
+
 
                 # KL without ebm
                 KL_loss = 0.5 * (self.log_var_p- log_var_q- 1+ (log_var_q.exp() + mu_q.pow(2)) / self.log_var_p.exp())
@@ -251,10 +256,10 @@ class AbstractTrainer:
                 # Entropy posterior
                 entropy_posterior = torch.sum(0.5 * (math.log(2 * math.pi) + log_var_q + 1), dim=1).reshape(self.cfg.trainer.multiple_sample_val,x.shape[0]).mean(dim=0)
 
-                # Gaussian mixture
-                log_prob_mixture = self.prior.log_prob(z_q)
+                # Gaussian extra_prior
+                log_prob_extra_prior = self.prior.log_prob(z_q)
 
-                log_prob_mixture = log_prob_mixture.reshape(self.cfg.trainer.multiple_sample_val,x.shape[0]).mean(dim=0)
+                log_prob_extra_prior = log_prob_extra_prior.reshape(self.cfg.trainer.multiple_sample_val,x.shape[0]).mean(dim=0)
                
                 # Energy :
                 energy_approximate = self.energy(z_q).reshape(self.cfg.trainer.multiple_sample_val,x.shape[0])
@@ -263,7 +268,7 @@ class AbstractTrainer:
 
                 loss_ebm = (energy_approximate + log_partition_estimate.exp() - 1).reshape(self.cfg.trainer.multiple_sample_val,x.shape[0]).mean(dim=0)
                 loss_total = loss_g + KL_loss + loss_ebm
-                elbo_mixture = -loss_g + entropy_posterior + log_prob_mixture
+                elbo_extra_prior = -loss_g + entropy_posterior + log_prob_extra_prior
 
                 dic_loss = {
                     "loss_g": loss_g,
@@ -274,7 +279,8 @@ class AbstractTrainer:
                     "energy_approximate": energy_approximate.mean(dim=0),
                     "approx_elbo": -loss_total,
                     "elbo_no_ebm": -loss_g - KL_loss,
-                    "elbo_mixture": elbo_mixture,
+                    "elbo_extra_prior": elbo_extra_prior,
+                    "mse_loss": mse_loss,
                     "mu_q": mu_q.flatten(1).mean(1).reshape(self.cfg.trainer.multiple_sample_val,x.shape[0]).mean(dim=0),
                     "log_var_q": log_var_q.flatten(1).sum(1).reshape(self.cfg.trainer.multiple_sample_val,x.shape[0]).mean(dim=0),
                 }
@@ -361,6 +367,21 @@ class AbstractTrainer:
             plot_contour(samples_aux, energy_list_large_scale, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Posterior LC")
 
 
+            energy_list_large_scale, energy_list_names, x, y = self.get_all_energies(z_e_0, min_x=-30, max_x=30)
+            samples_aux = self.cut_samples(z_e_0, min_x=-30, max_x=30)
+            plot_contour(samples_aux, energy_list_large_scale, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Base Distribution XLC")
+            
+            samples_aux = self.cut_samples(z_e_k, min_x=-30, max_x=30)
+            plot_contour(samples_aux, energy_list_large_scale, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Prior XLC")
+
+            samples_aux = self.cut_samples(mu_q, min_x=-30, max_x=30)
+            plot_contour(samples_aux, energy_list_large_scale, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Approximate Posterior XLC")
+
+            samples_aux = self.cut_samples(z_g_k, min_x=-30, max_x=30)
+            plot_contour(samples_aux, energy_list_large_scale, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Posterior XLC")
+
+
+
     def cut_samples(self, samples, min_x=-10, max_x =-10):
         min_y = min_x
         max_y = max_x
@@ -374,12 +395,6 @@ class AbstractTrainer:
     def get_all_energies(self, samples, min_x=-10, max_x=-10):
         samples_mean = samples.mean(0)
         samples_std = samples.std(0)
-        # min_x = min(-3, samples_mean[0].min().item() - 3*samples_std[0].item())
-        # max_x = max(3, samples_mean[0].max().item()+ 3*samples_std[0].item())
-        # min_y = min(-3, samples_mean[1].min().item() - 3*samples_std[1].item())
-        # max_y = max(3, samples_mean[1].max().item()+ 3*samples_std[1].item())
-        # min_x = -10
-        # max_x = 10
         min_y = min_x
         max_y = max_x
         
