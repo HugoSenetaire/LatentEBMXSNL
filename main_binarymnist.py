@@ -19,17 +19,12 @@ import hydra_config
 root = "/scratch/hhjs/data"
 
 
-@hydra.main(version_base="1.1", config_path="conf_mnist_2dlatent", config_name="conf",)
+@hydra.main(version_base="1.1", config_path="conf_binary_mnist", config_name="conf",)
 def main(cfg):
     device = "cuda" if t.cuda.is_available() else "cpu"
     cfg.trainer.device = device
 
     data_train, data_val, data_test = get_dataset_and_loader(cfg, device)
-    if isinstance(data_val, torch.utils.data.dataloader.DataLoader,):
-        data_val = data_val.dataset.tensors[0]
-    if isinstance(data_test, torch.utils.data.dataloader.DataLoader,):
-        data_test = data_test.dataset.tensors[0]
-
     total_train = get_trainer(cfg)
     total_train = total_train(cfg)
     total_train.train(train_dataloader=data_train, val_dataloader=data_val, test_dataloader=data_test)

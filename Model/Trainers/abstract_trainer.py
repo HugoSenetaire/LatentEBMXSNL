@@ -14,7 +14,7 @@ from ..Encoder import AbstractEncoder
 from ..Energy import get_energy_network
 from ..Optim import get_optimizer, grad_clipping
 from ..Prior import get_prior, GaussianPrior
-from ..Sampler.sampler import SampleLangevinPosterior, SampleLangevinPrior, Sampler
+from ..Sampler.sampler import SampleLangevinPosterior, SampleLangevinPrior
 from ..Utils.log_utils import log, draw, get_extremum, plot_contour
 
 class AbstractTrainer:
@@ -68,31 +68,42 @@ class AbstractTrainer:
 
 
 
-    def train(self, train_data, val_data=None):
-        self.sampler = Sampler(train_data)
-        for i in tqdm.tqdm(range(self.n_iter_pretrain + self.n_iter)):
-            x = self.sampler.sample_p_data(self.cfg.dataset.batch_size).to(self.cfg.trainer.device)
-            if i < self.n_iter_pretrain:
-                dic_loss = self.train_step_standard_elbo(x, i)
+    def train(self, train_dataloader, val_dataloader=None, test_dataloader=None):
+        self.global_step = 0
+        iterator = iter(train_dataloader)
+        for self.global_step in tqdm.tqdm(range(self.n_iter_pretrain + self.n_iter)):
+            try :
+                x = next(iterator)[0].to(self.cfg.trainer.device)
+            except StopIteration:
+                iterator = iter(train_dataloader)
+                x = next(iterator)[0].to(self.cfg.trainer.device)
+            x = x.reshape(x.shape[0], self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size)
+
+
+
+            if self.global_step < self.n_iter_pretrain:
+                dic_loss = self.train_step_standard_elbo(x, self.global_step)
             else:
-                dic_loss = self.train_step(x, i)
+                dic_loss = self.train_step(x, self.global_step)
 
             # Log
-            if i % self.cfg.trainer.log_every == 0:
-                log(i, dic_loss, logger=self.logger)
+            if self.global_step % self.cfg.trainer.log_every == 0:
+                log(self.global_step, dic_loss, logger=self.logger)
             # Save
-            if i % self.cfg.trainer.save_images_every == 0:
-                self.draw_samples(x, i)
-                self.plot_latent(i)
+            if self.global_step % self.cfg.trainer.save_images_every == 0:
+                self.draw_samples(x, self.global_step)
+                self.plot_latent(dataloader=train_dataloader,step = self.global_step)
 
             # Eval
-            if i % self.cfg.trainer.val_every == 0 and val_data is not None:
-                self.eval(val_data, i)
-                self.SNIS_eval(val_data, i)
+            if self.global_step % self.cfg.trainer.val_every == 0 and val_dataloader is not None:
+                self.eval(val_dataloader, self.global_step)
+                # self.SNIS_eval(val_dataloader, self.global_step)
             # Test
-            if i%self.cfg.trainer.test_every == 0 and val_data is not None :
-                self.eval(val_data, i, name="test/")
-                self.SNIS_eval(val_data, i, name="test/")
+            if self.global_step%self.cfg.trainer.test_every == 0 and test_dataloader is not None :
+                self.eval(test_dataloader, self.global_step, name="test/")
+                # self.SNIS_eval(test_dataloader, self.global_step, name="test/")
+
+            
 
 
     def train_step_standard_elbo(self, x, step):
@@ -100,7 +111,7 @@ class AbstractTrainer:
         self.opt_energy.zero_grad()
         self.opt_encoder.zero_grad()
 
-        z_e_0, z_g_0 = self.base_dist.sample(self.cfg.dataset.batch_size), self.base_dist.sample(self.cfg.dataset.batch_size)
+        z_e_0, z_g_0 = self.base_dist.sample(x.shape[0]), self.base_dist.sample(x.shape[0])
         mu_q, log_var_q = self.encoder(x).chunk(2, 1)
 
         # Reparametrization trick
@@ -159,89 +170,45 @@ class AbstractTrainer:
 
     
 
-
-    def SNIS_eval(self, val_data, step, name="val/"):
+    def log_partition_estimate(self, step, name="val/"):
         with torch.no_grad():
-            k=0
-            dic = {}
-            if name == "val/":
-                max_len = len(val_data)/10
-            else :
-                max_len = len(val_data)
-            while k*self.cfg.dataset.batch_size_val<max_len:
-                x = val_data[k*self.cfg.dataset.batch_size_val:(k+1)*self.cfg.dataset.batch_size_val].to(self.cfg.trainer.device)
-                x_expanded = x.unsqueeze(0).expand(self.cfg.trainer.multiple_sample_val_SNIS,x.shape[0],self.cfg.dataset.nc,self.cfg.dataset.img_size,self.cfg.dataset.img_size).flatten(0,1)
-                expanded_batch_size = x.shape[0]*self.cfg.trainer.multiple_sample_val_SNIS
-                
-                mu_q, log_var_q = self.encoder(x_expanded).chunk(2,1)
-                std_q = torch.exp(0.5*log_var_q)
-                epsilon = torch.randn_like(mu_q)
-                z_q = (epsilon.mul(std_q).add_(mu_q)).reshape(expanded_batch_size, self.cfg.trainer.nz,)
-                x_hat = self.generator(z_q)
-
-                energy_prior = self.energy(z_q).reshape(self.cfg.trainer.multiple_sample_val_SNIS,x.shape[0])
-                base_dist = self.base_dist.log_prob(z_q).reshape(self.cfg.trainer.multiple_sample_val_SNIS,x.shape[0])
-                multi_gaussian = self.prior.log_prob(z_q).reshape(self.cfg.trainer.multiple_sample_val_SNIS,x.shape[0])
-
-
-                posterior_distribution = torch.distributions.normal.Normal(mu_q, std_q).log_prob(z_q.flatten(1)).sum(1).reshape(self.cfg.trainer.multiple_sample_val_SNIS,x.shape[0])
-                weights_energy = (energy_prior + base_dist - posterior_distribution).reshape(self.cfg.trainer.multiple_sample_val_SNIS,x.shape[0])
-                weights_no_energy = (base_dist - posterior_distribution).reshape(self.cfg.trainer.multiple_sample_val_SNIS,x.shape[0])
-                weights_gaussian = (multi_gaussian - posterior_distribution).reshape(self.cfg.trainer.multiple_sample_val_SNIS,x.shape[0])
-                weights_energy = torch.softmax(weights_energy, dim=0)
-                weights_no_energy = torch.softmax(weights_no_energy, dim=0)
-                weights_gaussian = torch.softmax(weights_gaussian, dim=0)
-
-
-
-                # Reconstruction loss :
-                loss_g = self.generator.get_loss(x_hat, x_expanded).reshape(self.cfg.trainer.multiple_sample_val_SNIS,x.shape[0])
-                SNIS_energy = (weights_energy*loss_g).sum(0)
-                SNIS_no_energy = (weights_no_energy*loss_g).sum(0)
-                SNIS_gaussian = (weights_gaussian*loss_g).sum(0)
-                
-                dic_loss = {
-                    "SNIS_energy": -SNIS_energy,
-                    "SNIS_no_energy" : -SNIS_no_energy,
-                    "SNIS_gaussian" : -SNIS_gaussian
-                }
-                k = k + 1
-
-                for key, value in dic_loss.items():
-                    if key not in dic:
-                        dic[key] = []
-                    dic[key].append(value.reshape(x.shape[0]))
-            for key in dic:
-                dic[key] = torch.cat(dic[key],dim=0).mean().item()
-            log(step, dic, logger=self.logger, name=name)
-
+            batch_size_val = self.cfg.dataset.batch_size_val
+            sampled = 0
+            log_partition_estimate = 0
+            total_energy = 0
+            for k in range(int(np.ceil(self.cfg.trainer.nb_sample_partition_estimate_val/batch_size_val))):
+                z_e_0 = self.base_dist.sample(self.cfg.trainer.nb_sample_partition_estimate_val,)[:self.cfg.trainer.nb_sample_partition_estimate_val-sampled]
+                sampled+=z_e_0.shape[0]
+                current_energy = self.energy(z_e_0).flatten(1).sum(1)
+                total_energy += self.energy(z_e_0).sum(0)
+                log_partition_estimate += torch.logsumexp(-current_energy,0) 
+            log_partition_estimate = log_partition_estimate - math.log(sampled)
+            log(step, {"log_z":log_partition_estimate.item()}, logger=self.logger, name=name)
+            log(step, {"energy_base_dist":(total_energy/sampled).item()}, logger=self.logger, name=name)
+        return log_partition_estimate
 
 
 
     def eval(self, val_data, step, name="val/"):
         with torch.no_grad():
-            z_e_0 = self.base_dist.sample(self.cfg.trainer.nb_sample_partition_estimate_val,)
-            energy_base_dist = self.energy(z_e_0).flatten(1).sum(1)
-            log_partition_estimate = torch.logsumexp(-energy_base_dist,0) - math.log(energy_base_dist.shape[0])
-            log(step, {"log_z":log_partition_estimate.item()}, logger=self.logger, name=name)
-            log(step, {"energy_base_dist":energy_base_dist.mean().item()}, logger=self.logger, name=name)
+            log_partition_estimate = self.log_partition_estimate(step, name=name)
+            iterator = iter(val_data)
+            for i in range(len(val_data)):
+                batch = next(iterator)
+                x = batch[0].to(self.cfg.trainer.device)
+                x = x.reshape(x.shape[0], self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size)
 
-            k=0
-            if name == "val/":
-                max_len = len(val_data)/10
-            else :
-                max_len = len(val_data)
-            while k* self.cfg.dataset.batch_size<max_len:
-                x = val_data[k*self.cfg.dataset.batch_size:(k+1)*self.cfg.dataset.batch_size].to(self.cfg.trainer.device)
-                x_expanded = x.unsqueeze(0).expand(self.cfg.trainer.multiple_sample_val,x.shape[0],self.cfg.dataset.nc,self.cfg.dataset.img_size,self.cfg.dataset.img_size).flatten(0,1)
+                x_expanded = x.unsqueeze(0).expand(self.cfg.trainer.multiple_sample_val, x.shape[0], self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size).flatten(0,1)
                 expanded_batch_size = x.shape[0]*self.cfg.trainer.multiple_sample_val
                 dic = {}
-                mu_q, log_var_q = self.encoder(x_expanded).chunk(2,1)
-                std_q = torch.exp(0.5*log_var_q)
+                mu_q, log_var_q = self.encoder(x).chunk(2,1)
+                mu_q_expanded = mu_q.unsqueeze(0).expand(self.cfg.trainer.multiple_sample_val, x.shape[0], self.cfg.trainer.nz).flatten(0,1)
+                log_var_q_expanded = log_var_q.unsqueeze(0).expand(self.cfg.trainer.multiple_sample_val, x.shape[0], self.cfg.trainer.nz).flatten(0,1)
+                std_q_expanded = torch.exp(0.5*log_var_q_expanded)
 
                 # Reparam trick
-                eps = torch.randn_like(mu_q)
-                z_q = (eps.mul(std_q).add_(mu_q)).reshape(expanded_batch_size, self.cfg.trainer.nz,)
+                eps = torch.randn_like(mu_q_expanded)
+                z_q = (eps.mul(std_q_expanded).add_(mu_q_expanded)).reshape(expanded_batch_size, self.cfg.trainer.nz,)
                 x_hat = self.generator(z_q)
 
                 # Reconstruction loss :
@@ -250,25 +217,25 @@ class AbstractTrainer:
 
 
                 # KL without ebm
-                KL_loss = 0.5 * (self.log_var_p- log_var_q- 1+ (log_var_q.exp() + mu_q.pow(2)) / self.log_var_p.exp())
-                KL_loss = KL_loss.sum(dim=1).reshape(self.cfg.trainer.multiple_sample_val,x.shape[0]).mean(dim=0)
+                KL_loss = 0.5 * (self.log_var_p - log_var_q - 1+ (log_var_q.exp() + mu_q.pow(2)) / self.log_var_p.exp())
+                KL_loss = KL_loss.sum(dim=1).reshape(x.shape[0])
 
                 # Entropy posterior
-                entropy_posterior = torch.sum(0.5 * (math.log(2 * math.pi) + log_var_q + 1), dim=1).reshape(self.cfg.trainer.multiple_sample_val,x.shape[0]).mean(dim=0)
+                entropy_posterior = torch.sum(0.5 * (math.log(2 * math.pi) + log_var_q + 1), dim=1).reshape(x.shape[0])
 
                 # Gaussian extra_prior
                 log_prob_extra_prior = self.prior.log_prob(z_q)
-
-                log_prob_extra_prior = log_prob_extra_prior.reshape(self.cfg.trainer.multiple_sample_val,x.shape[0]).mean(dim=0)
+                log_prob_extra_prior = log_prob_extra_prior.reshape(self.cfg.trainer.multiple_sample_val,x.shape[0])
                
                 # Energy :
                 energy_approximate = self.energy(z_q).reshape(self.cfg.trainer.multiple_sample_val,x.shape[0])
                 base_dist_z_approximate = self.base_dist.log_prob(z_q).reshape(self.cfg.trainer.multiple_sample_val,x.shape[0])
 
-
+                
+                # Different loss :
                 loss_ebm = (energy_approximate + log_partition_estimate.exp() - 1).reshape(self.cfg.trainer.multiple_sample_val,x.shape[0]).mean(dim=0)
                 loss_total = loss_g + KL_loss + loss_ebm
-                elbo_extra_prior = -loss_g + entropy_posterior + log_prob_extra_prior
+                elbo_extra_prior = -loss_g + entropy_posterior + (log_prob_extra_prior).mean(dim=0)
 
                 dic_loss = {
                     "loss_g": loss_g,
@@ -281,14 +248,43 @@ class AbstractTrainer:
                     "elbo_no_ebm": -loss_g - KL_loss,
                     "elbo_extra_prior": elbo_extra_prior,
                     "mse_loss": mse_loss,
-                    "mu_q": mu_q.flatten(1).mean(1).reshape(self.cfg.trainer.multiple_sample_val,x.shape[0]).mean(dim=0),
-                    "log_var_q": log_var_q.flatten(1).sum(1).reshape(self.cfg.trainer.multiple_sample_val,x.shape[0]).mean(dim=0),
+                    "log_prob_extra_prior_z_approximate": log_prob_extra_prior.mean(dim=0),
+                    "mu_q_norm": mu_q.norm(dim=1),
+                    "log_var_q_norm": log_var_q.norm(dim=1),
                 }
+
+                multi_gaussian = self.prior.log_prob(z_q).reshape(self.cfg.trainer.multiple_sample_val_SNIS,x.shape[0])
+
+                # Different Weights :
+                posterior_distribution = torch.distributions.normal.Normal(mu_q_expanded, std_q_expanded).log_prob(z_q.flatten(1)).sum(1).reshape(self.cfg.trainer.multiple_sample_val_SNIS,x.shape[0])
+                log_weights_energy = (energy_approximate + base_dist_z_approximate - posterior_distribution).reshape(self.cfg.trainer.multiple_sample_val_SNIS,x.shape[0])
+                log_weights_no_energy = (base_dist_z_approximate - posterior_distribution).reshape(self.cfg.trainer.multiple_sample_val_SNIS,x.shape[0])
+                log_weights_gaussian = (multi_gaussian - posterior_distribution).reshape(self.cfg.trainer.multiple_sample_val_SNIS,x.shape[0])
+                log_weights_energy = torch.log_softmax(log_weights_energy, dim=0)
+                log_weights_no_energy = torch.log_softmax(log_weights_no_energy, dim=0)
+                log_weights_gaussian = torch.log_softmax(log_weights_gaussian, dim=0)
+
+
+
+                # Reconstruction loss :
+                loss_g = self.generator.get_loss(x_hat, x_expanded).reshape(self.cfg.trainer.multiple_sample_val_SNIS,x.shape[0])
+                SNIS_energy = (log_weights_energy+loss_g).logsumexp(0).reshape(x.shape[0])
+                SNIS_no_energy = (log_weights_no_energy+loss_g).logsumexp(0).reshape(x.shape[0])
+                SNIS_extra_prior = (log_weights_gaussian+loss_g).logsumexp(0).reshape(x.shape[0])
+                
+                dic_loss.update({
+                    "SNIS_energy": -SNIS_energy,
+                    "SNIS_no_energy" : -SNIS_no_energy,
+                    "SNIS_extra_prior" : -SNIS_extra_prior
+                })
+               
+
                 for key, value in dic_loss.items():
                     if key not in dic:
                         dic[key] = []
                     dic[key].append(value.reshape(x.shape[0]))
-                k = k + 1
+
+            
             for key in dic:
                 dic[key] = torch.stack(dic[key], dim=0).mean().item()
             log(step, dic, logger=self.logger, name=name)
@@ -325,11 +321,14 @@ class AbstractTrainer:
         draw(mu_prior.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="MeanExtraPrior")
 
 
-    def plot_latent(self, step):
+    def plot_latent(self, dataloader, step):
         if self.cfg.trainer.nz != 2:
             pass
         else :
-            data = self.sampler.sample_p_data(1000).to(self.cfg.trainer.device)
+            data = next(iter(dataloader))[0].to(self.cfg.trainer.device)
+            while len(data)<1000:
+                data = torch.cat([data, next(iter(dataloader))[0].to(self.cfg.trainer.device)], dim=0)
+            data = data[:1000]
 
             len_samples = min(1000, data.shape[0])
             mu_q, log_var_q = self.encoder(data[:len_samples]).chunk(2,1)

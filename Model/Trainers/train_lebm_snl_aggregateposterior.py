@@ -40,7 +40,7 @@ class SNELBO_Aggregate(AbstractTrainer):
         self.opt_energy.zero_grad()
         self.opt_encoder.zero_grad()
 
-        z_e_0, z_g_0 = self.base_dist.sample(self.cfg.dataset.batch_size), self.base_dist.sample(self.cfg.dataset.batch_size)
+        z_e_0, z_g_0 = self.base_dist.sample(x.shape[0]), self.base_dist.sample(x.shape[0])
         param = self.encoder(x)
         mu_q, log_var_q = param.chunk(2,1)
         aggregate = AggregatePosterior(mu_q.reshape(x.shape[0], self.cfg.trainer.nz).detach(), log_var_q.reshape(x.shape[0], self.cfg.trainer.nz).detach())

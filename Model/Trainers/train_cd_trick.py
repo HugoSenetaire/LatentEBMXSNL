@@ -14,7 +14,7 @@ class ContrastiveDivergenceLogTrick(AbstractTrainer):
 
     def train_step(self, x, step):
 
-        z_e_0, z_g_0 = self.base_dist.sample(self.cfg.dataset.batch_size), self.base_dist.sample(self.cfg.dataset.batch_size)
+        z_e_0, z_g_0 = self.base_dist.sample(x.shape[0]), self.base_dist.sample(x.shape[0])
         z_e_k = self.sampler_prior(z_e_0, self.energy, self.base_dist,)
         z_g_k = self.sampler_posterior(z_g_0, x, self.generator, self.energy, self.base_dist,)
 

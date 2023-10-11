@@ -25,10 +25,6 @@ def main(cfg):
     cfg.trainer.device = device
 
     data_train, data_val, data_test = get_dataset_and_loader(cfg, device)
-    if isinstance(data_val, torch.utils.data.dataloader.DataLoader,):
-        data_val = data_val.dataset.tensors[0]
-    if isinstance(data_test, torch.utils.data.dataloader.DataLoader,):
-        data_test = data_test.dataset.tensors[0]
 
     total_train = get_trainer(cfg)
     total_train = total_train(cfg)
