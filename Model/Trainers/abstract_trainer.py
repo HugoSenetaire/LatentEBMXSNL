@@ -302,31 +302,44 @@ class AbstractTrainer:
     def draw_samples(self, x, step):
         batch_save = min(64, x.shape[0])
         z_e_0, z_g_0 = self.base_dist.sample(batch_save), self.base_dist.sample(batch_save)
+        z_e_k, z_grad_norm = self.sampler_prior(z_e_0, self.energy, self.base_dist,)
+        z_g_k, z_g_grad_norm, z_e_grad_norm = self.sampler_posterior(z_g_0,x[:batch_save], self.generator, self.energy, self.base_dist,)
+
+        with torch.no_grad():
+            norm_z_e_0 = z_e_0.norm(dim=1).reshape(batch_save,)
+            norm_z_e_k = z_e_k.norm(dim=1).reshape(batch_save,)
+            norm_z_g_k = z_g_0.norm(dim=1).reshape(batch_save,)
+            
+            # Mean norm
+            log(step, {"norm_z_e_0":norm_z_e_0.mean().item()}, self.logger, name="sample/")
+            log(step, {"norm_z_e_k":norm_z_e_k.mean().item()}, self.logger, name="sample/")
+            log(step, {"norm_z_g_k":norm_z_g_k.mean().item()}, self.logger, name="sample/")
+            # Std Norm
+            log(step, {"norm_z_e_0_std":norm_z_e_0.std().item()}, self.logger, name="sample/")
+            log(step, {"norm_z_e_k_std":norm_z_e_k.std().item()}, self.logger, name="sample/")
+            log(step, {"norm_z_g_k_std":norm_z_g_k.std().item()}, self.logger, name="sample/")
+
+
+            x_base, mu_base =self.generator.sample(z_e_0, return_mean=True)
+            draw(x_base.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleBaseDistribution")
+            draw(mu_base.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="MeanBaseDistribution")
+        
+            x_prior, mu_prior =self.generator.sample(z_e_k, return_mean=True)
+            draw(x_prior.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleEBMPrior")
+            draw(mu_prior.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="MeanEBMPrior")
     
-        z_e_k = self.sampler_prior(z_e_0, self.energy, self.base_dist,)
+            x_posterior, mu_posterior =self.generator.sample(z_g_k, return_mean=True)
+            draw(x_posterior.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleEBMPosterior")
+            draw(mu_posterior.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="MeanEBMPosterior")
 
-        z_g_k = self.sampler_posterior(z_g_0,x[:batch_save], self.generator, self.energy, self.base_dist,)
-
-        x_base, mu_base =self.generator.sample(z_e_0, return_mean=True)
-        draw(x_base.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleBaseDistribution")
-        draw(mu_base.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="MeanBaseDistribution")
-    
-        x_prior, mu_prior =self.generator.sample(z_e_k, return_mean=True)
-        draw(x_prior.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleEBMPrior")
-        draw(mu_prior.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="MeanEBMPrior")
- 
-        x_posterior, mu_posterior =self.generator.sample(z_g_k, return_mean=True)
-        draw(x_posterior.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleEBMPosterior")
-        draw(mu_posterior.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="MeanEBMPosterior")
-
-        x_reconstruction, mu_reconstruction =self.generator.sample(self.encoder(x[:batch_save]).chunk(2, 1)[0].reshape(-1, self.cfg.trainer.nz, 1, 1), return_mean=True)
-        draw(x_reconstruction.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleReconstruction")
-        draw(mu_reconstruction.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="MeanReconstruction")
-       
-        extra_prior_samples = self.prior.sample(batch_save).reshape(batch_save, self.cfg.trainer.nz, 1, 1).to(self.cfg.trainer.device)
-        x_prior, mu_prior = self.generator.sample(extra_prior_samples, return_mean=True)
-        draw(x_prior.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleExtraPrior")
-        draw(mu_prior.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="MeanExtraPrior")
+            x_reconstruction, mu_reconstruction =self.generator.sample(self.encoder(x[:batch_save]).chunk(2, 1)[0].reshape(-1, self.cfg.trainer.nz, 1, 1), return_mean=True)
+            draw(x_reconstruction.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleReconstruction")
+            draw(mu_reconstruction.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="MeanReconstruction")
+        
+            extra_prior_samples = self.prior.sample(batch_save).reshape(batch_save, self.cfg.trainer.nz, 1, 1).to(self.cfg.trainer.device)
+            x_prior, mu_prior = self.generator.sample(extra_prior_samples, return_mean=True)
+            draw(x_prior.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleExtraPrior")
+            draw(mu_prior.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="MeanExtraPrior")
 
 
     def plot_latent(self, dataloader, step):
@@ -341,8 +354,8 @@ class AbstractTrainer:
             len_samples = min(1000, data.shape[0])
             mu_q, log_var_q = self.encoder(data[:len_samples]).chunk(2,1)
             z_e_0, z_g_0 = self.base_dist.sample(len_samples), self.base_dist.sample(len_samples)
-            z_e_k = self.sampler_prior(z_e_0, self.energy, self.base_dist,)
-            z_g_k = self.sampler_posterior(z_g_0, data[:len_samples], self.generator, self.energy, self.base_dist,)
+            z_e_k, z_grad_norm = self.sampler_prior(z_e_0, self.energy, self.base_dist,)
+            z_g_k, z_g_grad_norm, z_e_grad_norm = self.sampler_posterior(z_g_0, data[:len_samples], self.generator, self.energy, self.base_dist,)
 
 
 

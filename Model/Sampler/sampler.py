@@ -38,11 +38,13 @@ class SampleLangevinPrior(nn.Module):
     def forward(self, z, energy, base_dist):
         z = z.clone().detach().requires_grad_(True)
         for i in range(self.K):
-            en = energy(z).squeeze() - base_dist.log_prob(z).squeeze()
-            z_grad = t.autograd.grad(en.sum(), z)[0]
-            z.data = z.data - 0.5 * self.a * self.a * z_grad + self.a * t.randn_like(z).data
+            en = energy(z).squeeze() - base_dist.log_prob(z).reshape(z.shape[0])
+            z_grad = torch.autograd.grad(en.sum(), z)[0]
 
-        return z.detach()
+            z.data = z.data - 0.5 * self.a * self.a * z_grad + self.a * torch.randn_like(z).data
+            z_grad_norm = z_grad.view(z.shape[0], -1).norm(dim=1).mean()
+
+        return z.detach(), z_grad_norm
     
 class SampleLangevinPosterior(nn.Module):
     def __init__(self, K, a,):
@@ -57,12 +59,16 @@ class SampleLangevinPosterior(nn.Module):
     def forward(self, z, x, generator, energy, base_dist):
         z = z.clone().detach().requires_grad_(True)
         for i in range(self.K):
-            x_hat = generator(z)
-            g_log_lkhd = generator.get_loss(x_hat, x).mean(dim=0)
-            grad_g = t.autograd.grad(g_log_lkhd, z)[0]
+            param = generator(z)
+            g_log_lkhd = generator.get_loss(param, x).sum(dim=0)
+            grad_g = t.autograd.grad(g_log_lkhd, z, retain_graph=True)[0]
+
             en = energy(z).squeeze() - base_dist.log_prob(z).reshape(z.shape[0])
             grad_e = t.autograd.grad(en.sum(), z)[0]
             z.data = z.data - 0.5 * self.a * self.a * (grad_g + grad_e) + self.a * t.randn_like(z).data
-        return z.detach()
+
+            z_grad_g_grad_norm = grad_g.view(x.shape[0], -1).norm(dim=1).mean()
+            z_grad_e_grad_norm = grad_e.view(x.shape[0], -1).norm(dim=1).mean()
+        return z.detach(), z_grad_g_grad_norm, z_grad_e_grad_norm
 
 

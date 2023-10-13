@@ -28,7 +28,23 @@ class FixedSigmaGaussianLossReconstruction(LossReconstruction):
     def __call__(self, param, x):
         x_hat = param.flatten(1)
         x = x.flatten(1)
-        return torch.sum((x_hat-x)**2, dim=1)/ (2.0 * self.sigma * self.sigma)  - math.log(self.sigma)* x.shape[1] - 0.5 * math.log(2*math.pi) * x.shape[1]
+        # print(x_hat.shape)
+        # from torch.autograd import grad
+        # print(x.shape)
+        # mse = nn.MSELoss(reduction='sum')
+        # return mse(x_hat, x) / (2.0 * self.sigma * self.sigma)  - math.log(self.sigma)* x.shape[1] - 0.5 * math.log(2*math.pi) * x.shape[1]
+        # g_log_lkhd = 1.0 / (2.0 * 0.3 * 0.3) * mse(x_hat, x) / x.shape[0]
+        # print(self.sigma)
+        g_log_lkhd = torch.sum((x_hat-x)**2, dim=1)/ (2.0 * self.sigma * self.sigma) - math.log(self.sigma)* x.shape[1] - 0.5 * math.log(2*math.pi) * x.shape[1]
+        
+        # print("Diff loss", torch.mean((g_log_lkhd_aux.mean() - g_log_lkhd).abs()))
+        # grad_g = grad(g_log_lkhd, param, retain_graph=True)[0]
+        # grad_g_aux = grad(g_log_lkhd_aux.mean(), param, retain_graph=True)[0]
+        # print("Diff grad", torch.norm((grad_g_aux - grad_g).flatten(1), dim=1).mean())
+
+        # assert False
+
+        return g_log_lkhd
 
     def sample(self, param, return_mean = False):
         x_mu = param.flatten(1)

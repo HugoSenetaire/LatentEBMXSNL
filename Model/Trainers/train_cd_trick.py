@@ -15,8 +15,23 @@ class ContrastiveDivergenceLogTrick(AbstractTrainer):
     def train_step(self, x, step):
 
         z_e_0, z_g_0 = self.base_dist.sample(x.shape[0]), self.base_dist.sample(x.shape[0])
-        z_e_k = self.sampler_prior(z_e_0, self.energy, self.base_dist,)
-        z_g_k = self.sampler_posterior(z_g_0, x, self.generator, self.energy, self.base_dist,)
+        z_e_k, z_grad_norm = self.sampler_prior(z_e_0, self.energy, self.base_dist,)
+        z_g_k, z_g_grad_norm, z_e_grad_norm = self.sampler_posterior(z_g_0, x, self.generator, self.energy, self.base_dist,)
+
+        z_e_0_norm = z_e_0.detach().norm(dim=1).mean()
+        z_e_k_norm = z_e_k.detach().norm(dim=1).mean()
+        z_g_k_norm = z_g_k.detach().norm(dim=1).mean()
+
+        dic_loss={
+            "z_e_0_norm": z_e_0_norm,
+            "z_e_k_norm": z_e_k_norm,
+            "z_g_k_norm": z_g_k_norm,
+            "z_e_k_grad_norm_e": z_grad_norm,
+            "z_g_k_grad_norm_g": z_g_grad_norm,
+            "z_g_k_grad_norm_e": z_e_grad_norm,
+            "lr_e": self.opt_energy.param_groups[0]["lr"],
+            "lr_g": self.opt_generator.param_groups[0]["lr"],
+        }
 
 
         self.opt_generator.zero_grad()
