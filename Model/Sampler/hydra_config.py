@@ -11,8 +11,11 @@ from omegaconf import DictConfig
 class BaseLangevinSampler:
     K: int = MISSING
     a: float = MISSING
-    clamp_min: Optional[float] = None
-    clamp_max: Optional[float] = None
+    clamp_min_data: Optional[float] = None
+    clamp_max_data: Optional[float] = None
+    clamp_min_grad: Optional[float] = None
+    clamp_max_grad: Optional[float] = None
+    clip_data_norm : Optional[float] = None
     clip_grad_norm: Optional[float] = None
 
 
