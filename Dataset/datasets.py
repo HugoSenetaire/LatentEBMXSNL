@@ -106,10 +106,10 @@ def load_mnist(cfg, **kwargs):
                                              tfm.ToTensor(),
                                              tfm.Normalize((0.5,), (0.5,)),
                                ]))
-    
+    ds_val, ds_train = torch.utils.data.random_split(ds_train, [int(0.1*len(ds_train)), len(ds_train) - int(0.1*len(ds_train))])
     dataloader_train = torch.utils.data.DataLoader(ds_train, batch_size=cfg.dataset.batch_size, shuffle=True, num_workers=0)
     dataloader_test = torch.utils.data.DataLoader(ds_test, batch_size=cfg.dataset.batch_size_val, shuffle=False, num_workers=0)
-    dataloader_val = torch.utils.data.DataLoader(ds_test, batch_size=cfg.dataset.batch_size_val, shuffle=False, num_workers=0)
+    dataloader_val = torch.utils.data.DataLoader(ds_val, batch_size=cfg.dataset.batch_size_val, shuffle=False, num_workers=0)
 
     return dataloader_train, dataloader_val, dataloader_test, cfg
 
