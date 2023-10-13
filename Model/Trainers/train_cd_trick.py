@@ -38,7 +38,7 @@ class ContrastiveDivergenceLogTrick(AbstractTrainer):
         x_hat = self.generator(z_g_k.detach())
         loss_g = self.generator.get_loss(x_hat, x).mean(dim=0).mean()
         loss_g.backward()
-        self.grad_clipping_all_net(["generator"], self.logger, self.cfg, step=step)
+        self.grad_clipping_all_net(["generator"], step=step)
         self.opt_generator.step()
 
 
@@ -62,7 +62,7 @@ class ContrastiveDivergenceLogTrick(AbstractTrainer):
         for key, item in dic_loss.items():
             loss_e += item
         loss_e.backward()
-        self.grad_clipping_all_net(["energy"], self.logger, self.cfg, step=step)
+        self.grad_clipping_all_net(["energy"], step=step)
 
         self.opt_energy.step()
 
@@ -83,7 +83,7 @@ class ContrastiveDivergenceLogTrick(AbstractTrainer):
         # KL without ebm
         KL_loss = 0.5 * (self.log_var_p - log_var_q -1 +  (log_var_q.exp() + mu_q.pow(2))/self.log_var_p.exp())
         KL_loss = KL_loss.reshape(x.shape[0],self.cfg.trainer.nz).sum(dim=1).mean(dim=0)
-
+        self.grad_clipping_all_net(["encoder"], step=step)
         loss_elbo = loss_g + KL_loss
         loss_elbo.backward()
         self.opt_encoder.step()
@@ -101,7 +101,9 @@ class ContrastiveDivergenceLogTrick(AbstractTrainer):
             "proposal_z_base_dist": proposal_z_base_dist.mean().item(),
             "en_pos": energy_posterior.mean().item(),
             "en_neg": energy_proposal.mean().item(),
-            "log_z" : log_partition_estimate.item()
+            "log_z" : log_partition_estimate.item(),
+            "elbo_loss": -loss_elbo.mean().item(),
+            "kl_loss": KL_loss.mean().item(),
         }
 
         return dic_loss

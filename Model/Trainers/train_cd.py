@@ -38,6 +38,7 @@ class ContrastiveDivergence(AbstractTrainer):
         loss_g = self.generator.get_loss(x_hat, x).mean(dim=0).mean()
         mse_loss = self.mse(x_hat, x) / x.shape[0]
         mse_loss.backward()
+        self.grad_clipping_all_net(["generator"], step=step)
         self.opt_generator.step()
 
 
@@ -48,6 +49,7 @@ class ContrastiveDivergence(AbstractTrainer):
         for key, item in dic_loss.items():
             loss_e += item
         loss_e.backward()
+        self.grad_clipping_all_net(["energy"], step=step)
         self.opt_energy.step()
 
 
@@ -70,6 +72,7 @@ class ContrastiveDivergence(AbstractTrainer):
 
         loss_elbo = loss_g + KL_loss
         loss_elbo.backward()
+        self.grad_clipping_all_net(["encoder"], step=step)
         self.opt_encoder.step()
 
 
@@ -82,6 +85,8 @@ class ContrastiveDivergence(AbstractTrainer):
             "mse_loss": mse_loss,
             "en_pos": en_pos,
             "en_neg": en_neg,
+            "loss_elbo": loss_elbo,
+            "KL_loss": KL_loss,
             })
         
         return dic_loss
