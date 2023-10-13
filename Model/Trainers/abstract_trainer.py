@@ -15,7 +15,7 @@ from ..Energy import get_energy_network
 from ..Optim import get_optimizer, grad_clipping
 from ..Optim.Schedulers import get_scheduler
 from ..Prior import get_prior, GaussianPrior
-from ..Sampler.sampler import SampleLangevinPosterior, SampleLangevinPrior
+from ..Sampler import get_posterior_sampler, get_prior_sampler
 from ..Utils.log_utils import log, draw, get_extremum, plot_contour
 
 class AbstractTrainer:
@@ -31,8 +31,8 @@ class AbstractTrainer:
         self.prior = get_prior(cfg)
         self.encoder = AbstractEncoder(cfg, cfg.trainer.nz, cfg.dataset.nc)
 
-        self.sampler_prior = SampleLangevinPrior(self.cfg.sampler_prior.K, self.cfg.sampler_prior.a,)
-        self.sampler_posterior = SampleLangevinPosterior(self.cfg.sampler_posterior.K, self.cfg.sampler_posterior.a, )
+        self.sampler_prior = get_prior_sampler(cfg.sampler_prior)
+        self.sampler_posterior = get_posterior_sampler(cfg.sampler_posterior)
         self.mse = nn.MSELoss(reduction="sum")
         self.mse_test = nn.MSELoss(reduction='none')
         self.proposal = torch.distributions.normal.Normal(
