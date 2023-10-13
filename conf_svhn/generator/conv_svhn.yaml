@@ -3,5 +3,5 @@ defaults:
 network_name: 'conv_svhn'
 loss_reconstruction_name: 'bernoulli'
 activation_name: 'sigmoid'
-ngf: 32
+ngf: 64
 llhd_sigma: null

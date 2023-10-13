@@ -3,5 +3,5 @@ defaults:
 network_name: 'conv_mnist'
 loss_reconstruction_name: 'gaussian'
 activation_name: 'tanh'
-ngf: 32
+ngf: 64
 llhd_sigma: 0.3

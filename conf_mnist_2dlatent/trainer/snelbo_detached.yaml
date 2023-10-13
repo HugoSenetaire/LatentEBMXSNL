@@ -11,7 +11,7 @@ n_iter: 100000
 
 log_every: 100
 save_every: 1000
-save_images_every: 200
+save_images_every: 500
 val_every: 1000
 test_every: 10000
 

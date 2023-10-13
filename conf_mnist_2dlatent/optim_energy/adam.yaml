@@ -1,7 +1,7 @@
 defaults:
   - adam_base
 optimizer_name: "adam"
-lr: 5e-5
+lr: 2e-5
 weight_decay: 0
 b1: 0.5
 b2: 0.999
