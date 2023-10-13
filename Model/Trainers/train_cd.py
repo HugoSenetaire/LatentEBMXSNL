@@ -2,7 +2,7 @@ import math
 
 from ..Regularization.regularizer_ebm import regularization
 from .abstract_trainer import AbstractTrainer
-from ..Utils.log_utils import log
+import torch
 
 
 
@@ -49,6 +49,32 @@ class ContrastiveDivergence(AbstractTrainer):
             loss_e += item
         loss_e.backward()
         self.opt_energy.step()
+
+
+
+        # Train the encoder to go to regular ebm, not really the same thing, it's just so that I get better approximation, could do reverse KL ?
+        self.opt_encoder.zero_grad()
+        param = self.encoder(x)
+        mu_q, log_var_q = param.chunk(2,1)
+        std_q = torch.exp(0.5*log_var_q)
+        # Reparam trick
+        eps = torch.randn_like(mu_q)
+        z_q = (eps.mul(std_q).add_(mu_q))
+        x_hat = self.generator(z_q)
+        # Reconstruction loss :
+        loss_g = self.generator.get_loss(x_hat, x).reshape(x.shape[0]).mean(dim=0)
+
+        # KL without ebm
+        KL_loss = 0.5 * (self.log_var_p - log_var_q -1 +  (log_var_q.exp() + mu_q.pow(2))/self.log_var_p.exp())
+        KL_loss = KL_loss.reshape(x.shape[0],self.cfg.trainer.nz).sum(dim=1).mean(dim=0)
+
+        loss_elbo = loss_g + KL_loss
+        loss_elbo.backward()
+        self.opt_encoder.step()
+
+
+
+        
 
         dic_loss.update({
             "loss_e": loss_e,
