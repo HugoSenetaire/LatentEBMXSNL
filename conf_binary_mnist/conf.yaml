@@ -5,6 +5,7 @@ defaults:
   - energy : energy_mnist
   - generator: conv_mnist
   - prior : gaussian
+  - extra_prior : gaussian
   - regularization : no_reg
   - regularization_encoder : no_reg
   - sampler_prior : langevin
@@ -18,7 +19,7 @@ defaults:
   - scheduler_generator : exponential_lr
   - scheduler_prior : exponential_lr
   - machine : titans
-  - trainer: prior_training_detached
+  - trainer: contrastive_divergence
 
 
 

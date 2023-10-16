@@ -3,12 +3,13 @@ import torch
 
 
 class MixtureOfGaussian(GaussianPrior):
-    def __init__(self, cfg):
+    def __init__(self, nz, cfg):
         super().__init__(cfg)
+        self.nz = nz
         self.cfg = cfg
-        self.log_mix = torch.nn.Parameter(torch.randn((self.cfg.prior.nb_mixture))/self.cfg.prior.nb_mixture)
-        self.mu = torch.nn.Parameter(torch.randn((self.cfg.prior.nb_mixture, self.cfg.trainer.nz)))
-        self.log_var = torch.nn.Parameter(torch.randn((self.cfg.prior.nb_mixture, self.cfg.trainer.nz)))
+        self.log_mix = torch.nn.Parameter(torch.randn((self.cfg.nb_mixture))/self.cfg.nb_mixture)
+        self.mu = torch.nn.Parameter(torch.randn((self.cfg.nb_mixture, self.nz)))
+        self.log_var = torch.nn.Parameter(torch.randn((self.cfg.nb_mixture, self.nz)))
 
     def log_prob(self, z):
         z = z.flatten(1)

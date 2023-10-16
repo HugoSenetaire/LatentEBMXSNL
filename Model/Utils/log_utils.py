@@ -8,7 +8,10 @@ import wandb
 
 def log(step, dic_loss, logger, name=""):
   for key,value in dic_loss.items():
-    logger.log({name+key:value},step=step)
+    try :
+      logger.log({name+key:value.mean().item()},step=step)
+    except :
+      logger.log({name+key:value},step=step)
 
 
 transform_back_m1_1 = lambda x: (x.clamp(-1,1))/2+0.5
