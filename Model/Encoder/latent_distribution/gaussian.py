@@ -55,7 +55,7 @@ class GaussianPosterior(nn.Module):
             return kl_loss
         else :
             # Empirical KL
-            return self.log_prob(params, samples) - self.cfg.prior.log_prob(samples)
+            return self.log_prob(params, samples) - prior.log_prob(samples)
 
     def calculate_entropy(self, params, dic_params = None):
         if dic_params is None :
@@ -85,39 +85,39 @@ class GaussianPosterior(nn.Module):
 
 
 
-class GaussianCylindricPosterior(nn.Module):
-    def __init__(self, cfg):
-        super().__init__()
-        self.cfg = cfg
+# class GaussianCylindricPosterior(nn.Module):
+#     def __init__(self, cfg):
+#         super().__init__()
+#         self.cfg = cfg
 
 
-    def get_params(self, params):
-        mu_cylindric, log_var_cylindric = params.chunk(2, dim=1)
-        mu = torch.cos(mu_cylindric)
-        log_var = log_var_cylindric
-        return torch.cat((mu, log_var), dim=1)
+#     def get_params(self, params):
+#         mu_cylindric, log_var_cylindric = params.chunk(2, dim=1)
+#         mu = torch.cos(mu_cylindric)
+#         log_var = log_var_cylindric
+#         return torch.cat((mu, log_var), dim=1)
 
-    def r_sample(self, params, n_samples=1):
-        mu_cylindric, log_var_cylindric = params.chunk(2, dim=1)
-        mu_expanded = mu.unsqueeze(0).expand(n_samples, *mu.shape)
-        log_var_expanded = log_var.unsqueeze(0).expand(n_samples, *log_var.shape)
-        epsilon = torch.randn_like(mu_expanded)
-        return mu_expanded + torch.exp(log_var_expanded/2) * epsilon
+#     def r_sample(self, params, n_samples=1):
+#         mu_cylindric, log_var_cylindric = params.chunk(2, dim=1)
+#         mu_expanded = mu.unsqueeze(0).expand(n_samples, *mu.shape)
+#         log_var_expanded = log_var.unsqueeze(0).expand(n_samples, *log_var.shape)
+#         epsilon = torch.randn_like(mu_expanded)
+#         return mu_expanded + torch.exp(log_var_expanded/2) * epsilon
 
 
-    def log_prob(self, params, x_hat):
-        '''
-        Get the log probability of the given x_hat given the parameters of the distribution.
-        Handle also for multiple inputs
-        :param params: The parameters of the distribution
-        :param x_hat: The sample to evaluate
-        '''
-        mu, log_var = params.chunk(2, dim=1)
-        if x_hat.shape[0] == mu.shape[0]:
-            return torch.distributions.Normal(mu, torch.exp(log_var/2)).log_prob(x_hat).reshape(mu.shape[0], self.cfg.trainer.nz).sum(1)
-        else :
-            mu_expanded = mu.unsqueeze(0).expand(x_hat.shape[0], *mu.shape)
-            log_var_expanded = log_var.unsqueeze(0).expand(x_hat.shape[0], *log_var.shape)
-            return torch.distributions.Normal(mu_expanded, torch.exp(log_var_expanded/2)).log_prob(x_hat).reshape(x_hat.shape[0], mu.shape[0], self.cfg.trainer.nz).sum(2)
+#     def log_prob(self, params, x_hat):
+#         '''
+#         Get the log probability of the given x_hat given the parameters of the distribution.
+#         Handle also for multiple inputs
+#         :param params: The parameters of the distribution
+#         :param x_hat: The sample to evaluate
+#         '''
+#         mu, log_var = params.chunk(2, dim=1)
+#         if x_hat.shape[0] == mu.shape[0]:
+#             return torch.distributions.Normal(mu, torch.exp(log_var/2)).log_prob(x_hat).reshape(mu.shape[0], self.cfg.trainer.nz).sum(1)
+#         else :
+#             mu_expanded = mu.unsqueeze(0).expand(x_hat.shape[0], *mu.shape)
+#             log_var_expanded = log_var.unsqueeze(0).expand(x_hat.shape[0], *log_var.shape)
+#             return torch.distributions.Normal(mu_expanded, torch.exp(log_var_expanded/2)).log_prob(x_hat).reshape(x_hat.shape[0], mu.shape[0], self.cfg.trainer.nz).sum(2)
 
 
