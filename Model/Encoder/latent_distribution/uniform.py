@@ -18,9 +18,9 @@ class UniformPosterior(nn.Module):
         self.sigmoid_version = self.cfg.encoder.sigmoid_version
 
 
-    def calculate_kl(self, prior, params, samples, dic_params = None):
+    def calculate_kl(self, prior, params, samples, dic_params = None, empirical_kl = False):
        
-        if self.cfg.prior.prior_name == 'uniform':
+        if self.cfg.prior.prior_name == 'uniform' and not empirical_kl:
             if dic_params is None :
                 dic_params, _ = self.get_params(params)
             min_approx_post, max_approx_post = dic_params["min"], dic_params["max"]
@@ -32,7 +32,7 @@ class UniformPosterior(nn.Module):
             # Empirical KL 
             return self.log_prob(params, samples, dic_params=dic_params) - prior.log_prob(samples)
         
-    def calculate_entropy(self, params, dic_params = None):
+    def calculate_entropy(self, params, dic_params = None, empirical_entropy = False):
         if dic_params is None :
             dic_params, _ = self.get_params(params)
         min_aux, max_aux = dic_params["min"], dic_params["max"]

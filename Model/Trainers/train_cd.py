@@ -71,11 +71,11 @@ class ContrastiveDivergence(AbstractTrainer):
         loss_g = self.generator.get_loss(x_hat, x).reshape(x.shape[0]).mean(dim=0)
 
         # KL without ebm
-        KL_loss = self.encoder.latent_distribution.calculate_kl(self.prior, params, z_q, dic_params=dic_params).mean(dim=0)
-
+        KL_loss = self.encoder.latent_distribution.calculate_kl(self.prior, params, z_q, dic_params=dic_params, empirical_kl=self.cfg.trainer.empirical_kl).mean(dim=0)
 
         # Entropy posterior
-        entropy_posterior = self.encoder.latent_distribution.calculate_entropy(params, dic_params=dic_params).mean(dim=0)
+        entropy_posterior = self.encoder.latent_distribution.calculate_entropy(params, dic_params=dic_params, empirical_entropy=self.cfg.trainer.empirical_entropy).mean(dim=0)
+
 
         loss_elbo = loss_g + KL_loss
         dic_regul_encoder = regularization_encoder(dic_params, self.encoder, self.cfg, self.logger, step)

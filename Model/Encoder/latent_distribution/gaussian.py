@@ -42,12 +42,12 @@ class GaussianPosterior(nn.Module):
         return torch.distributions.Normal(mu, torch.exp(log_var/2))
 
     
-    def calculate_kl(self, prior, params, samples, dic_params = None):
+    def calculate_kl(self, prior, params, samples, dic_params = None, empirical_kl = False):
         if dic_params is None :
             mu_q, log_var_q = params.chunk(2, dim=1)
         else :
             mu_q, log_var_q = dic_params["mu"], dic_params["log_var"]
-        if self.cfg.prior.prior_name == 'gaussian':
+        if self.cfg.prior.prior_name == 'gaussian' and not empirical_kl:
             mu_q, log_var_q = params.chunk(2, dim=1)
             mu_prior, log_var_prior = prior.mu.unsqueeze(0), prior.log_var.unsqueeze(0)
             kl_loss = 0.5 * (log_var_prior - log_var_q + (torch.exp(log_var_q) + (mu_q - mu_prior).pow(2)) / torch.exp(log_var_prior) - 1)
@@ -57,7 +57,7 @@ class GaussianPosterior(nn.Module):
             # Empirical KL
             return self.log_prob(params, samples) - prior.log_prob(samples)
 
-    def calculate_entropy(self, params, dic_params = None):
+    def calculate_entropy(self, params, dic_params = None, empirical_entropy = False):
         if dic_params is None :
             mu, log_var = params.chunk(2, dim=1)
         else :

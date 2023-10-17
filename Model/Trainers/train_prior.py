@@ -34,10 +34,10 @@ class TrainerPrior(AbstractTrainer):
         loss_g = self.generator.get_loss(x_hat, x).reshape(x.shape[0]).mean(dim=0)
 
         # KL without ebm
-        KL_loss = self.encoder.latent_distribution.calculate_kl(self.prior, param, z_q, dic_params=dic_param).mean(dim=0)
+        KL_loss = self.encoder.latent_distribution.calculate_kl(self.prior, param, z_q, dic_params=dic_param, empirical_kl=self.cfg.trainer.empirical_kl).mean(dim=0)
 
         # Entropy posterior
-        entropy_posterior = self.encoder.latent_distribution.calculate_entropy(param, dic_params=dic_param).mean(dim=0)
+        entropy_posterior = self.encoder.latent_distribution.calculate_entropy(param, dic_params=dic_param, empirical_entropy=self.cfg.trainer.empirical_entropy).mean(dim=0)
 
         # Energy :
         if self.detach_approximate_posterior:

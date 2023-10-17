@@ -36,6 +36,11 @@ class BaseTrainerConfig:
     nb_sample_partition_estimate_val: int = 100
     grid_coarseness : int = 100
 
+    # Calculate KL and Entropy with MC :
+    empirical_kl : bool = False
+    empirical_entropy : bool = False
+
+
     device : str = "cuda"
 
 
@@ -61,12 +66,22 @@ class TrainerSNELBO(BaseTrainerConfig):
     detach_approximate_posterior : bool = False
     fix_encoder : bool = False
     fix_generator : bool = False
+    empirical_kl : bool = False
+    empirical_entropy : bool = False
+
+@dataclass
+class TrainerSNELBOAggregatePosterior(BaseTrainerConfig):
+    trainer_name : str = "snelbo_aggregate_trainer"
+    detach_approximate_posterior : bool = False
+    fix_encoder : bool = False
+    fix_generator : bool = False
 
 def store_base_trainer(cs: ConfigStore):
     cs.store(group="trainer", name="contrastive_divergence_trainer_base", node=TrainerContrastiveDivergence)
     cs.store(group="trainer", name="contrastive_divergence_log_trick_trainer_base", node=TrainerContrastiveDivergenceLogTrick)
     cs.store(group="trainer", name="prior_trainer_base", node=TrainerPrior)
     cs.store(group="trainer", name="snelbo_trainer_base", node=TrainerSNELBO)
+    cs.store(group="trainer", name="snelbo_aggregate_trainer_base", node=TrainerSNELBOAggregatePosterior)
 
 
     
