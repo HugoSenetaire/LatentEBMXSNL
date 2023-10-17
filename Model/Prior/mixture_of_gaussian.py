@@ -1,10 +1,10 @@
-from .gaussian_prior import GaussianPrior
 import torch
+import torch.nn as nn
 
 
-class MixtureOfGaussian(GaussianPrior):
+class MixtureOfGaussian(nn.Module):
     def __init__(self, nz, cfg):
-        super().__init__(cfg)
+        super().__init__(nz, cfg)
         self.nz = nz
         self.cfg = cfg
         self.log_mix = torch.nn.Parameter(torch.randn((self.cfg.nb_mixture))/self.cfg.nb_mixture)
