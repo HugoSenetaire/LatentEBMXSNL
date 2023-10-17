@@ -427,17 +427,17 @@ class AbstractTrainer:
 
             elif self.cfg.prior.prior_name =='uniform' :
                 energy_list_small_scale, energy_list_names, x, y = self.get_all_energies(z_e_0, min_x=self.cfg.prior.min, max_x=self.cfg.prior.max, params=params)
-                samples_aux = self.cut_samples(z_e_0, min_x=-3, max_x=3)
+                samples_aux = self.cut_samples(z_e_0, min_x=self.cfg.prior.min, max_x=self.cfg.prior.max)
                 plot_contour(samples_aux, energy_list_small_scale, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Base Distribution SC")
                 
-                samples_aux = self.cut_samples(z_e_k, min_x=-3, max_x=3)
+                samples_aux = self.cut_samples(z_e_k, min_x=self.cfg.prior.min, max_x=self.cfg.prior.max)
                 plot_contour(samples_aux, energy_list_small_scale, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Prior SC")
 
 
-                samples_aux = self.cut_samples(mu_q, min_x=-3, max_x=3)
+                samples_aux = self.cut_samples(mu_q, min_x=self.cfg.prior.min, max_x=self.cfg.prior.max)
                 plot_contour(samples_aux, energy_list_small_scale, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Approximate Posterior SC")
 
-                samples_aux = self.cut_samples(z_g_k, min_x=-3, max_x=3)
+                samples_aux = self.cut_samples(z_g_k, min_x=self.cfg.prior.min, max_x=self.cfg.prior.max)
                 plot_contour(samples_aux, energy_list_small_scale, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Posterior SC")
             else :
                 raise ValueError("Prior name not recognized")
@@ -449,8 +449,9 @@ class AbstractTrainer:
         max_y = max_x
         tensor_min = torch.cat([torch.full_like(samples[:,0,None], min_x),torch.full_like(samples[:,1, None], min_y)], dim=1)
         tensor_max = torch.cat([torch.full_like(samples[:,0,None], max_x),torch.full_like(samples[:,1, None], max_y)], dim=1)
-        samples = torch.where(samples < tensor_min, tensor_min, samples)
-        samples = torch.where(samples > tensor_max, tensor_max, samples)
+        
+        samples = torch.where(samples < tensor_min + 1e-2, tensor_min+1e-2, samples)
+        samples = torch.where(samples > tensor_max - 1e-2, tensor_max-1e-2, samples)
         return samples
 
 
