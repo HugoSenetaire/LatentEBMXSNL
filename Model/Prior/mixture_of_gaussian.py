@@ -4,7 +4,7 @@ import torch.nn as nn
 
 class MixtureOfGaussian(nn.Module):
     def __init__(self, nz, cfg):
-        super().__init__(nz, cfg)
+        super().__init__()
         self.nz = nz
         self.cfg = cfg
         self.log_mix = torch.nn.Parameter(torch.randn((self.cfg.nb_mixture))/self.cfg.nb_mixture)
