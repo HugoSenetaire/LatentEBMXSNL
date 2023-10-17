@@ -54,7 +54,7 @@ class SampleLangevinPrior(nn.Module):
 
             z.data = z.data - 0.5 * self.a * self.a * z_grad + self.a * torch.randn_like(z).data
 
-            z.data = clamp_all(z.data, self.clamp_min_data, self.clamp_max_data, self.clip_data_norm)
+            z.data = clamp_all(z.data, self.clip_data_norm, self.clamp_min_data, self.clamp_max_data, )
         
         return z.detach(), z_grad_norm
     
