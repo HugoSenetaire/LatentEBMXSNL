@@ -1,5 +1,5 @@
 defaults:
-  - snelbo_trainer_base
+  - snelbo_aggregate_trainer_base
 
 trainer_name : "snelbo_aggregate_trainer"
 
