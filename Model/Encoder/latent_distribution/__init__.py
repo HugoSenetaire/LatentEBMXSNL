@@ -1,4 +1,4 @@
-from .gaussian import GaussianPosterior, GaussianCylindricPosterior
+from .gaussian import GaussianPosterior
 from .uniform import UniformPosterior
 
 

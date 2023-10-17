@@ -1,7 +1,7 @@
 defaults:
   - base_config
   - dataset : mnist
-  - encoder : conv_mnist
+  - encoder : conv_mnist_uniform
   - energy : energy_mnist
   - generator: conv_mnist
   - prior : uniform
@@ -19,7 +19,7 @@ defaults:
   - scheduler_generator : exponential_lr
   - scheduler_prior : exponential_lr
   - machine : titans
-  - trainer: contrastive_divergence
+  - trainer: snelbo
 
 
 
