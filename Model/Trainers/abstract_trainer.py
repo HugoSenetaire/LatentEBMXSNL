@@ -45,10 +45,10 @@ class AbstractTrainer:
             cfg.trainer.log_dir = os.path.join(cfg.machine.root, "logs",)
             print("Setting log dir to " + cfg.trainer.log_dir)
         self.logger = wandb.init(
-            project="LatentEBM",
+            project="LatentEBM_{}".format(cfg.dataset.dataset_name),
             config=OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True),
             dir=cfg.trainer.log_dir,
-            name= str(cfg.trainer.nz)+ "_" + cfg.dataset.dataset_name + "_" + cfg.trainer.trainer_name + time.strftime("%Y%m%d-%H%M%S"),
+            name= str(cfg.trainer.nz)+ "_" + cfg.prior.prior_name + "_" + cfg.trainer.trainer_name + time.strftime("%Y%m%d-%H%M%S"),
         )
         self.n_iter = cfg.trainer.n_iter
         self.n_iter_pretrain = cfg.trainer.n_iter_pretrain
