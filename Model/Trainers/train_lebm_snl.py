@@ -81,7 +81,7 @@ class SNELBO(AbstractTrainer):
             "approx_elbo" : -loss_total.item(),
             "elbo_no_ebm" : -loss_g.item() - KL_loss.item(),
             "mu_q": mu_q.flatten(1).mean(1).mean().item(),
-            "log_var_q": log_var_q.flatten(1).sum(1).mean().item(),
+            "log_var_q": log_var_q.flatten(1).mean(1).mean().item(),
         })
 
         self.opt_energy.step()

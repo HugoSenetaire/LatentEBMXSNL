@@ -97,22 +97,20 @@ class AbstractTrainer:
 
             # Log
             if self.global_step % self.cfg.trainer.log_every == 0:
-                # for key, item in dic_loss.items():
-                    # dic_loss[key] = item.
                 log(self.global_step, dic_loss, logger=self.logger)
+
             # Save
             if self.global_step % self.cfg.trainer.save_images_every == 0:
                 self.draw_samples(x, self.global_step)
                 self.plot_latent(dataloader=train_dataloader,step = self.global_step)
 
             # Eval
-            if self.global_step % self.cfg.trainer.val_every == 0 and val_dataloader is not None:
+            if (self.global_step) % self.cfg.trainer.val_every == 0 and val_dataloader is not None:
                 self.eval(val_dataloader, self.global_step)
-                # self.SNIS_eval(val_dataloader, self.global_step)
+                
             # Test
-            if self.global_step%self.cfg.trainer.test_every == 0 and test_dataloader is not None :
+            if (self.global_step)%self.cfg.trainer.test_every == 0 and test_dataloader is not None and self.global_step>0:
                 self.eval(test_dataloader, self.global_step, name="test/")
-                # self.SNIS_eval(test_dataloader, self.global_step, name="test/")
 
             
 
@@ -201,105 +199,165 @@ class AbstractTrainer:
         return log_partition_estimate
 
 
+    def get_partition_estimate(self, step, name="val/"):
+        log_partition_estimate = self.log_partition_estimate(step, name=name)
+        return log_partition_estimate
 
     def eval(self, val_data, step, name="val/"):
         with torch.no_grad():
-            log_partition_estimate = self.log_partition_estimate(step, name=name)
-            iterator = iter(val_data)
-            for i in range(len(val_data)):
-                dic_feedback = {}
-                batch = next(iterator)
-                x = batch[0].to(self.cfg.trainer.device)
-                x = x.reshape(x.shape[0], self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size)
-
-                x_expanded = x.unsqueeze(0).expand(self.cfg.trainer.multiple_sample_val, x.shape[0], self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size).flatten(0,1)
-                expanded_batch_size = x.shape[0]*self.cfg.trainer.multiple_sample_val
-                dic = {}
-                param = self.encoder(x)
-                dic_param, dic_param_feedback = self.encoder.latent_distribution.get_params(param)
-                dic_feedback.update(dic_param_feedback)
+            dic_feedback = {}
+            self.generator.eval()
+            self.encoder.eval()
+            self.energy.eval()
+            self.extra_prior.eval()
+            log_partition_estimate = self.get_partition_estimate(step, name=name)
+            self.elbo_eval(val_data, log_partition_estimate, step, name=name)
+            self.SNIS_eval(val_data=val_data, step=step, name=name)
 
 
-                # Reparam trick
-                z_q = self.encoder.latent_distribution.r_sample(param, n_samples = self.cfg.trainer.multiple_sample_val, dic_params=dic_param).reshape(expanded_batch_size, self.cfg.trainer.nz)
-                x_hat = self.generator(z_q)
+    def elbo_eval(self, val_data, log_partition_estimate, step, name="val/"):
+        iterator = iter(val_data)
+        total_dic_feedback = {}
+        ranger = tqdm.tqdm(range(len(val_data)), desc="elbo_eval", position=1, leave=False)
+        for i in ranger:
+            dic_feedback = {}
+            batch = next(iterator)
+            x = batch[0].to(self.cfg.trainer.device)
+            x = x.reshape(x.shape[0], self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size)
 
-                # Reconstruction loss :
-                loss_g = self.generator.get_loss(x_hat, x_expanded).reshape(self.cfg.trainer.multiple_sample_val,x.shape[0]).mean(dim=0)
-                mse_loss = self.mse_test(x_hat, x_expanded).reshape(self.cfg.trainer.multiple_sample_val, x.shape[0], -1).sum(dim=2).mean(dim=0)
+            x_expanded = x.unsqueeze(0).expand(self.cfg.trainer.multiple_sample_val, x.shape[0], self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size).flatten(0,1)
+            expanded_batch_size = x.shape[0]*self.cfg.trainer.multiple_sample_val
 
+            param = self.encoder(x)
+            dic_param, dic_param_feedback = self.encoder.latent_distribution.get_params(param)
+            dic_feedback.update(dic_param_feedback)
 
-                # KL without ebm
-                z_q_no_multiple = z_q.reshape(self.cfg.trainer.multiple_sample_val, x.shape[0], self.cfg.trainer.nz)[0]
-                KL_loss = self.encoder.latent_distribution.calculate_kl(self.prior, param, z_q_no_multiple, dic_params=dic_param)
-
-                # Entropy posterior
-                entropy_posterior = self.encoder.latent_distribution.calculate_entropy(param, dic_params=dic_param)
-
-                # Gaussian extra_prior
-                log_prob_extra_prior = self.extra_prior.log_prob(z_q)
-                log_prob_extra_prior = log_prob_extra_prior.reshape(self.cfg.trainer.multiple_sample_val,x.shape[0])
-               
-                # Energy :
-                energy_approximate = self.energy(z_q).reshape(self.cfg.trainer.multiple_sample_val,x.shape[0])
-                base_dist_z_approximate = self.prior.log_prob(z_q).reshape(self.cfg.trainer.multiple_sample_val,x.shape[0])
-
-                
-                # Different loss :
-                loss_ebm = (energy_approximate + log_partition_estimate.exp() - 1).reshape(self.cfg.trainer.multiple_sample_val,x.shape[0]).mean(dim=0)
-                loss_total = loss_g + KL_loss + loss_ebm
-                elbo_extra_prior = -loss_g + entropy_posterior + (log_prob_extra_prior).mean(dim=0)
-
-                
-                dic_feedback.update({
-                    "loss_g": loss_g,
-                    "entropy_posterior": entropy_posterior,
-                    "loss_ebm": loss_ebm,
-                    "base_dist_z_approximate": base_dist_z_approximate.mean(dim=0),
-                    "KL_loss_no_ebm": KL_loss,
-                    "energy_approximate": energy_approximate.mean(dim=0),
-                    "approx_elbo": -loss_total,
-                    "elbo_no_ebm": -loss_g - KL_loss,
-                    "elbo_extra_prior": elbo_extra_prior,
-                    "mse_loss": mse_loss,
-                    "log_prob_extra_prior_z_approximate": log_prob_extra_prior.mean(dim=0),
-                })
-
-                multi_gaussian = self.extra_prior.log_prob(z_q).reshape(self.cfg.trainer.multiple_sample_val_SNIS,x.shape[0])
-
-                # Different Weights :
-                posterior_distribution = self.encoder.latent_distribution.log_prob(param, z_q, dic_params=dic_param).reshape(self.cfg.trainer.multiple_sample_val_SNIS,x.shape[0])
-                log_weights_energy = (energy_approximate + base_dist_z_approximate - posterior_distribution).reshape(self.cfg.trainer.multiple_sample_val_SNIS,x.shape[0])
-                log_weights_no_energy = (base_dist_z_approximate - posterior_distribution).reshape(self.cfg.trainer.multiple_sample_val_SNIS,x.shape[0])
-                log_weights_gaussian = (multi_gaussian - posterior_distribution).reshape(self.cfg.trainer.multiple_sample_val_SNIS,x.shape[0])
-                log_weights_energy = torch.log_softmax(log_weights_energy, dim=0)
-                log_weights_no_energy = torch.log_softmax(log_weights_no_energy, dim=0)
-                log_weights_gaussian = torch.log_softmax(log_weights_gaussian, dim=0)
+            # Reparam trick
+            z_q = self.encoder.latent_distribution.r_sample(param, n_samples = self.cfg.trainer.multiple_sample_val, dic_params=dic_param).reshape(expanded_batch_size, self.cfg.trainer.nz)
+            x_hat = self.generator(z_q)
 
 
+            if hasattr(self.encoder.latent_distribution, "reverse"):
+                param_reverse = self.encoder.latent_distribution.reverse(param)
+                dic_param_reverse, dic_param_feedback_reverse = self.encoder.latent_distribution.get_params(param_reverse)
+                z_q_reverse = self.encoder.latent_distribution.r_sample(param_reverse, dic_params=dic_param_reverse).reshape(expanded_batch_size, self.cfg.trainer.nz)
+                x_hat_reverse = self.generator(z_q_reverse)
 
-                # Reconstruction loss :
-                loss_g = self.generator.get_loss(x_hat, x_expanded).reshape(self.cfg.trainer.multiple_sample_val_SNIS,x.shape[0])
-                SNIS_energy = (log_weights_energy+loss_g).logsumexp(0).reshape(x.shape[0])
-                SNIS_no_energy = (log_weights_no_energy+loss_g).logsumexp(0).reshape(x.shape[0])
-                SNIS_extra_prior = (log_weights_gaussian+loss_g).logsumexp(0).reshape(x.shape[0])
-                
-                dic_feedback.update({
-                    "SNIS_energy": -SNIS_energy,
-                    "SNIS_no_energy" : -SNIS_no_energy,
-                    "SNIS_extra_prior" : -SNIS_extra_prior
-                })
-               
+            # Reconstruction loss :
+            loss_g = self.generator.get_loss(x_hat, x_expanded).reshape(self.cfg.trainer.multiple_sample_val,x.shape[0]).mean(dim=0)
+            mse_loss = self.mse_test(x_hat, x_expanded).reshape(self.cfg.trainer.multiple_sample_val, x.shape[0], -1).sum(dim=2).mean(dim=0)
 
-                for key, value in dic_feedback.items():
-                    if key not in dic:
-                        dic[key] = []
-                    dic[key].append(value.reshape(x.shape[0]))
+
+            # KL without ebm
+            z_q_no_multiple = z_q.reshape(self.cfg.trainer.multiple_sample_val, x.shape[0], self.cfg.trainer.nz)[0]
+            KL_loss = self.encoder.latent_distribution.calculate_kl(self.prior, param, z_q_no_multiple, dic_params=dic_param)
+
+            # Entropy posterior
+            entropy_posterior = self.encoder.latent_distribution.calculate_entropy(param, dic_params=dic_param)
+
+
+            # Gaussian extra_prior
+            log_prob_extra_prior = self.extra_prior.log_prob(z_q)
+            log_prob_extra_prior = log_prob_extra_prior.reshape(self.cfg.trainer.multiple_sample_val,x.shape[0])
+            
+            # Energy :
+            energy_approximate = self.energy(z_q).reshape(self.cfg.trainer.multiple_sample_val,x.shape[0])
+            base_dist_z_approximate = self.prior.log_prob(z_q).reshape(self.cfg.trainer.multiple_sample_val,x.shape[0])
 
             
-            for key in dic:
-                dic[key] = torch.stack(dic[key], dim=0).mean().item()
-            log(step, dic, logger=self.logger, name=name)
+            # Different loss :
+            loss_ebm = (energy_approximate + log_partition_estimate.exp() - 1).reshape(self.cfg.trainer.multiple_sample_val,x.shape[0]).mean(dim=0)
+            loss_total = loss_g + KL_loss + loss_ebm
+            elbo_extra_prior = -loss_g + entropy_posterior + (log_prob_extra_prior).mean(dim=0)
+
+
+            
+            dic_feedback.update({
+                "loss_g": loss_g,
+                "entropy_posterior": entropy_posterior,
+                "loss_ebm": loss_ebm,
+                "base_dist_z_approximate": base_dist_z_approximate.mean(dim=0),
+                "KL_loss_no_ebm": KL_loss,
+                "energy_approximate": energy_approximate.mean(dim=0),
+                "approx_elbo": -loss_total,
+                "elbo_no_ebm": -loss_g - KL_loss,
+                "elbo_extra_prior": elbo_extra_prior,
+                "mse_loss": mse_loss,
+                "log_prob_extra_prior_z_approximate": log_prob_extra_prior.mean(dim=0),
+            })
+
+
+            for key, value in dic_feedback.items():
+                if key not in total_dic_feedback:
+                    total_dic_feedback[key] = []
+                total_dic_feedback[key].append(value.reshape(x.shape[0]))
+        
+        for key in total_dic_feedback:
+            total_dic_feedback[key] = torch.cat(total_dic_feedback[key], dim=0).mean().item()
+        log(step, total_dic_feedback, logger=self.logger, name=name)
+
+
+
+    def SNIS_eval(self, val_data, step, name="val/"):
+
+        iterator = iter(val_data)
+        total_dic_feedback = {}
+        ranger = tqdm.tqdm(range(len(val_data)), desc="SNIS_eval", position=1, leave=False)
+        for i in ranger:
+            dic_feedback = {}
+            batch = next(iterator)
+            x = batch[0].to(self.cfg.trainer.device)
+            x = x.reshape(x.shape[0], self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size)
+
+            x_expanded = x.unsqueeze(0).expand(self.cfg.trainer.multiple_sample_val, x.shape[0], self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size).flatten(0,1)
+            expanded_batch_size = x.shape[0]*self.cfg.trainer.multiple_sample_val
+
+            param = self.encoder(x)
+            dic_param, dic_param_feedback = self.encoder.latent_distribution.get_params(param)
+            dic_feedback.update(dic_param_feedback)
+
+            # Reparam trick
+            z_q = self.encoder.latent_distribution.r_sample(param, n_samples = self.cfg.trainer.multiple_sample_val, dic_params=dic_param).reshape(expanded_batch_size, self.cfg.trainer.nz)
+            x_hat = self.generator(z_q)
+
+            multi_gaussian = self.extra_prior.log_prob(z_q).reshape(self.cfg.trainer.multiple_sample_val_SNIS,x.shape[0])
+
+            # Energy :
+            energy_approximate = self.energy(z_q).reshape(self.cfg.trainer.multiple_sample_val,x.shape[0])
+            base_dist_z_approximate = self.prior.log_prob(z_q).reshape(self.cfg.trainer.multiple_sample_val,x.shape[0])
+
+            # Different Weights :
+            posterior_distribution = self.encoder.latent_distribution.log_prob(param, z_q, dic_params=dic_param).reshape(self.cfg.trainer.multiple_sample_val_SNIS,x.shape[0])
+            log_weights_energy = (energy_approximate + base_dist_z_approximate - posterior_distribution).reshape(self.cfg.trainer.multiple_sample_val_SNIS,x.shape[0])
+            log_weights_no_energy = (base_dist_z_approximate - posterior_distribution).reshape(self.cfg.trainer.multiple_sample_val_SNIS,x.shape[0])
+            log_weights_gaussian = (multi_gaussian - posterior_distribution).reshape(self.cfg.trainer.multiple_sample_val_SNIS,x.shape[0])
+            log_weights_energy = torch.log_softmax(log_weights_energy, dim=0)
+            log_weights_no_energy = torch.log_softmax(log_weights_no_energy, dim=0)
+            log_weights_gaussian = torch.log_softmax(log_weights_gaussian, dim=0)
+
+
+
+            # Reconstruction loss :
+            loss_g = self.generator.get_loss(x_hat, x_expanded).reshape(self.cfg.trainer.multiple_sample_val_SNIS,x.shape[0])
+            SNIS_energy = (log_weights_energy+loss_g).logsumexp(0).reshape(x.shape[0])
+            SNIS_no_energy = (log_weights_no_energy+loss_g).logsumexp(0).reshape(x.shape[0])
+            SNIS_extra_prior = (log_weights_gaussian+loss_g).logsumexp(0).reshape(x.shape[0])
+            
+            dic_feedback.update({
+                "SNIS_energy": -SNIS_energy,
+                "SNIS_no_energy" : -SNIS_no_energy,
+                "SNIS_extra_prior" : -SNIS_extra_prior
+            })
+
+            for key, value in dic_feedback.items():
+                if key not in total_dic_feedback:
+                    total_dic_feedback[key] = []
+                total_dic_feedback[key].append(value.reshape(x.shape[0]))
+        
+        for key in total_dic_feedback:
+            total_dic_feedback[key] = torch.cat(total_dic_feedback[key], dim=0).mean().item()
+        log(step, total_dic_feedback, logger=self.logger, name=name)
+        
 
 
 
@@ -366,82 +424,41 @@ class AbstractTrainer:
 
             len_samples = min(1000, data.shape[0])
             params = self.encoder(data[:len_samples])
-            
+            mu_q, log_var_q = self.encoder.latent_distribution.get_plots(params)
 
-            if self.cfg.encoder.latent_distribution_name == "gaussian":
-                mu_q = params.chunk(2,1)[0].reshape(len_samples, 2)
-            elif self.cfg.encoder.latent_distribution_name == "uniform":
-                dic_param, _ = self.encoder.latent_distribution.get_params(params)
-                min_aux, max_aux = dic_param['min'], dic_param['max']
-                mu_q = (min_aux + max_aux)/2
-
-                
             z_e_0, z_g_0 = self.prior.sample(len_samples), self.prior.sample(len_samples)
             z_e_k, z_grad_norm = self.sampler_prior(z_e_0, self.energy, self.prior,)
             z_g_k, z_g_grad_norm, z_e_grad_norm = self.sampler_posterior(z_g_0, data[:len_samples], self.generator, self.energy, self.prior,)
+         
+            liste_samples = [z_e_0, z_e_k, mu_q, z_g_k]
+            liste_samples_name = ["Latent Base Distribution", "Latent Prior", "Latent Approximate Posterior", "Latent Posterior"]
 
+
+            if hasattr(self, "reverse_encoder"):
+                params_reverse = self.reverse_encoder(data[:len_samples])
+                mu_q_reverse, log_var_q_reverse = self.reverse_encoder.latent_distribution.get_plots(params_reverse)
+                liste_samples.append(mu_q_reverse)
+                liste_samples_name.append("Latent Approximate Posterior Reverse")
+            else :
+                params_reverse = None
 
             if self.cfg.prior.prior_name == "gaussian":
-                energy_list_small_scale, energy_list_names, x, y = self.get_all_energies(z_e_0, min_x=-3, max_x=3, params=params)
-                samples_aux = self.cut_samples(z_e_0, min_x=-3, max_x=3)
-                plot_contour(samples_aux, energy_list_small_scale, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Base Distribution SC")
-                
-                samples_aux = self.cut_samples(z_e_k, min_x=-3, max_x=3)
-                plot_contour(samples_aux, energy_list_small_scale, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Prior SC")
-
-
-                samples_aux = self.cut_samples(mu_q, min_x=-3, max_x=3)
-                plot_contour(samples_aux, energy_list_small_scale, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Approximate Posterior SC")
-
-                samples_aux = self.cut_samples(z_g_k, min_x=-3, max_x=3)
-                plot_contour(samples_aux, energy_list_small_scale, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Posterior SC")
-
-
-                energy_list_large_scale, energy_list_names, x, y = self.get_all_energies(z_e_0, min_x=-10, max_x=10, params=params)
-                samples_aux = self.cut_samples(z_e_0, min_x=-10, max_x=10)
-                plot_contour(samples_aux, energy_list_large_scale, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Base Distribution LC")
-                
-                samples_aux = self.cut_samples(z_e_k, min_x=-10, max_x=10)
-                plot_contour(samples_aux, energy_list_large_scale, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Prior LC")
-
-                samples_aux = self.cut_samples(mu_q, min_x=-10, max_x=10)
-                plot_contour(samples_aux, energy_list_large_scale, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Approximate Posterior LC")
-
-                samples_aux = self.cut_samples(z_g_k, min_x=-10, max_x=10)
-                plot_contour(samples_aux, energy_list_large_scale, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Posterior LC")
-
-
-                energy_list_large_scale, energy_list_names, x, y = self.get_all_energies(z_e_0, min_x=-30, max_x=30, params=params)
-                samples_aux = self.cut_samples(z_e_0, min_x=-30, max_x=30)
-                plot_contour(samples_aux, energy_list_large_scale, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Base Distribution XLC")
-                
-                samples_aux = self.cut_samples(z_e_k, min_x=-30, max_x=30)
-                plot_contour(samples_aux, energy_list_large_scale, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Prior XLC")
-
-                samples_aux = self.cut_samples(mu_q, min_x=-30, max_x=30)
-                plot_contour(samples_aux, energy_list_large_scale, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Approximate Posterior XLC")
-
-                samples_aux = self.cut_samples(z_g_k, min_x=-30, max_x=30)
-                plot_contour(samples_aux, energy_list_large_scale, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Posterior XLC")
-
+                self.plot_samples_2d(liste_samples, -3, 3, liste_samples_name, step, params=params, params_reverse=params_reverse)
+                self.plot_samples_2d(liste_samples, -10, 10, liste_samples_name, step, params=params, params_reverse=params_reverse)
+                self.plot_samples_2d(liste_samples, -30, 30, liste_samples_name, step, params=params, params_reverse=params_reverse)
 
             elif self.cfg.prior.prior_name =='uniform' :
-                energy_list_small_scale, energy_list_names, x, y = self.get_all_energies(z_e_0, min_x=self.cfg.prior.min, max_x=self.cfg.prior.max, params=params)
-                samples_aux = self.cut_samples(z_e_0, min_x=self.cfg.prior.min, max_x=self.cfg.prior.max)
-                plot_contour(samples_aux, energy_list_small_scale, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Base Distribution SC")
+                self.plot_samples_2d(liste_samples, self.cfg.prior.min-1e-2, self.cfg.prior.max+1e-2, liste_samples_name, step, params=params, params_reverse=params_reverse)
                 
-                samples_aux = self.cut_samples(z_e_k, min_x=self.cfg.prior.min, max_x=self.cfg.prior.max)
-                plot_contour(samples_aux, energy_list_small_scale, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Prior SC")
-
-
-                samples_aux = self.cut_samples(mu_q, min_x=self.cfg.prior.min, max_x=self.cfg.prior.max)
-                plot_contour(samples_aux, energy_list_small_scale, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Approximate Posterior SC")
-
-                samples_aux = self.cut_samples(z_g_k, min_x=self.cfg.prior.min, max_x=self.cfg.prior.max)
-                plot_contour(samples_aux, energy_list_small_scale, energy_list_names, x, y, step=step, logger=self.logger, title="Latent Posterior SC")
             else :
                 raise ValueError("Prior name not recognized")
 
+    def plot_samples_2d(self, samples, min_x, max_x, liste_samples_name, step, params = None, params_reverse=None, ):
+        energy_list_small_scale, energy_list_names, x, y = self.get_all_energies(samples[0], min_x=min_x, max_x=max_x, params = params, params_reverse = params_reverse)
+        for sample, samples_names in zip(samples, liste_samples_name):
+            samples_aux = self.cut_samples(sample, min_x=min_x, max_x=max_x)
+            title = samples_names+f" [{str(min_x)}, {str(max_x)}]"
+            plot_contour(samples_aux, energy_list_small_scale, energy_list_names, x, y, step=step, title=title, logger=self.logger,)
 
 
     def cut_samples(self, samples, min_x=-10, max_x =-10):
@@ -450,12 +467,12 @@ class AbstractTrainer:
         tensor_min = torch.cat([torch.full_like(samples[:,0,None], min_x),torch.full_like(samples[:,1, None], min_y)], dim=1)
         tensor_max = torch.cat([torch.full_like(samples[:,0,None], max_x),torch.full_like(samples[:,1, None], max_y)], dim=1)
         
-        samples = torch.where(samples < tensor_min + 1e-2, tensor_min+1e-2, samples)
-        samples = torch.where(samples > tensor_max - 1e-2, tensor_max-1e-2, samples)
+        samples = torch.where(samples < tensor_min, tensor_min, samples)
+        samples = torch.where(samples > tensor_max, tensor_max, samples)
         return samples
 
 
-    def get_all_energies(self, samples, min_x=-10, max_x=-10, params=None):
+    def get_all_energies(self, samples, min_x=-10, max_x=-10, params=None, params_reverse=None):
         samples_mean = samples.mean(0)
         samples_std = samples.std(0)
         min_y = min_x
@@ -480,12 +497,21 @@ class AbstractTrainer:
         energy_list = [energy_base_dist, energy_prior, energy_extra_prior, just_energy]
         energy_list_names = ["Base Distribution", "EBM Prior", "Extra Prior", "Just EBM"]
 
-        if params is not None and self.cfg.prior.prior_name == "gaussian": # Does not work with uniform distribution
+        if params is not None and self.cfg.encoder.latent_distribution_name != 'uniform':
+        # == "gaussian": # Does not work with uniform distribution
             dic_params, _ = self.encoder.latent_distribution.get_params(params)
             dist_posterior = self.encoder.latent_distribution.get_distribution(params, dic_params=dic_params)
             aggregate = AggregatePosterior(dist_posterior, params.shape[0])
             aggregate_energy = -aggregate.log_prob(xy).reshape(grid_coarseness, grid_coarseness)
             energy_list.append(aggregate_energy)
             energy_list_names.append("Aggregate Posterior")
+
+        if params_reverse is not None and self.cfg.encoder.latent_distribution_name != 'uniform':
+            dic_params, _ = self.reverse_encoder.latent_distribution.get_params(params)
+            dist_posterior = self.reverse_encoder.latent_distribution.get_distribution(params, dic_params=dic_params)
+            aggregate = AggregatePosterior(dist_posterior, params.shape[0])
+            aggregate_energy = -aggregate.log_prob(xy).reshape(grid_coarseness, grid_coarseness)
+            energy_list.append(aggregate_energy)
+            energy_list_names.append("Aggregate Posterior Reverse")
 
         return energy_list, energy_list_names, x, y

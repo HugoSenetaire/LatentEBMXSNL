@@ -3,7 +3,7 @@
 import matplotlib.pyplot as plt
 import torchvision as tv
 import wandb
-
+import numpy as np 
 
 
 def log(step, dic_loss, logger, name=""):
@@ -25,7 +25,7 @@ dic = {
 def draw(img, step, logger, transform_back_name = "0_1", aux_name=""):
   transform_back = dic[transform_back_name]
   fig = plt.figure(figsize=(10,10))
-  grid_prior = tv.utils.make_grid(transform_back(img),)
+  grid_prior = tv.utils.make_grid(transform_back(img), normalize=True, nrow=int(np.sqrt(img.shape[0])))
   plt.imshow(grid_prior.detach().cpu().permute(1,2,0).numpy())
   plt.title(f"{aux_name}")
   img= wandb.Image(fig, caption=f"{aux_name}")
