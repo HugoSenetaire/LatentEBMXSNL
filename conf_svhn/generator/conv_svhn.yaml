@@ -1,7 +1,7 @@
 defaults:
   - base_generator
 network_name: 'conv_svhn'
-loss_reconstruction_name: 'bernoulli'
-activation_name: 'sigmoid'
+loss_reconstruction_name: 'gaussian'
+activation_name: 'tanh'
 ngf: 64
-llhd_sigma: null
+llhd_sigma: 0.3

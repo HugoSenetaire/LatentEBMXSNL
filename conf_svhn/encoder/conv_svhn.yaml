@@ -3,3 +3,4 @@ defaults:
 network_name: 'conv_svhn'
 activation_name: null
 nef: 16
+latent_distribution_name: 'gaussian'

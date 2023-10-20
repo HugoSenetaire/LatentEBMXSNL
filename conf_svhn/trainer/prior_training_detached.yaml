@@ -3,7 +3,7 @@ defaults:
 
 trainer_name : "prior_trainer"
 
-nz : 16
+nz : 100
 
 proposal_mean: 0.0
 proposal_std: 1.0
