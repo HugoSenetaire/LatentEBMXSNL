@@ -18,6 +18,7 @@ from ..Prior import get_prior, get_extra_prior
 from ..Sampler import get_posterior_sampler, get_prior_sampler
 from ..Utils.log_utils import log, draw, get_extremum, plot_contour
 from ..Utils.aggregate_posterior import AggregatePosterior
+from ..Utils.utils_fid import calculate_frechet
 
 class AbstractTrainer:
     def __init__(
@@ -104,9 +105,12 @@ class AbstractTrainer:
                 self.draw_samples(x, self.global_step)
                 self.plot_latent(dataloader=train_dataloader,step = self.global_step)
 
+
             # Eval
             if (self.global_step) % self.cfg.trainer.val_every == 0 and val_dataloader is not None:
                 self.eval(val_dataloader, self.global_step)
+                self.fid_eval(val_data=val_dataloader, step=self.global_step, name="val/")
+
                 
             # Test
             if (self.global_step)%self.cfg.trainer.test_every == 0 and test_dataloader is not None and self.global_step>0:
@@ -359,6 +363,19 @@ class AbstractTrainer:
         log(step, total_dic_feedback, logger=self.logger, name=name)
         
 
+    def fid_eval(self, val_data, step, name="val/"):
+        batch_save = min(256, val_data.dataset.__len__())
+        z_e_0 = self.prior.sample(batch_save)
+        z_e_k, _ = self.sampler_prior(z_e_0, self.energy, self.prior,)
+        x_sample, x_mean = self.generator.sample(z_e_k, return_mean=True)
+        x_sample = x_sample.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size).to('cpu')
+        x_mean = x_mean.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size).to('cpu')
+        val_data = torch.stack([val_data.dataset.__getitem__(i)[0] for i in np.random.randint(0, val_data.dataset.__len__(), batch_save)]).to('cpu')
+
+        fid = calculate_frechet(val_data, x_sample,)
+        fid_mean = calculate_frechet(val_data, x_mean,)
+        log(step, {"fid":fid}, logger=self.logger, name=name)
+        log(step, {"fid_mean":fid_mean}, logger=self.logger, name=name)
 
 
     def draw_samples(self, x, step):
@@ -473,8 +490,6 @@ class AbstractTrainer:
 
 
     def get_all_energies(self, samples, min_x=-10, max_x=-10, params=None, params_reverse=None):
-        samples_mean = samples.mean(0)
-        samples_std = samples.std(0)
         min_y = min_x
         max_y = max_x
         
