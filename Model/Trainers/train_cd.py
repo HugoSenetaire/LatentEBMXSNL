@@ -1,13 +1,13 @@
 import math
 
 from ..Regularization import regularization, regularization_encoder
-from .abstract_trainer import AbstractTrainer
+from .abstract_no_approx_posterior import NoApproxPosterior
 import torch
 
 
 
 
-class ContrastiveDivergence(AbstractTrainer):
+class ContrastiveDivergence(NoApproxPosterior):
     def __init__(self, cfg, ):
         super().__init__(cfg, )
         
@@ -56,38 +56,8 @@ class ContrastiveDivergence(AbstractTrainer):
         self.opt_energy.step()
 
 
-
-        # Train the encoder to go to regular ebm, not really the same thing, it's just so that I get better approximation, could do reverse KL ?
-        self.opt_encoder.zero_grad()
-        params = self.encoder(x)
-        dic_params, dic_params_feedback = self.encoder.latent_distribution.get_params(params)
-        dic_total.update(dic_params_feedback)
-        
-        # Reparam trick
-        z_q = self.encoder.latent_distribution.r_sample(params, dic_params=dic_params).reshape(x.shape[0], self.cfg.trainer.nz)
-        x_hat = self.generator(z_q)
-        
-        # Reconstruction loss :
-        loss_g = self.generator.get_loss(x_hat, x).reshape(x.shape[0]).mean(dim=0)
-
-        # KL without ebm
-        KL_loss = self.encoder.latent_distribution.calculate_kl(self.prior, params, z_q, dic_params=dic_params, empirical_kl=self.cfg.trainer.empirical_kl).mean(dim=0)
-
-        # Entropy posterior
-        entropy_posterior = self.encoder.latent_distribution.calculate_entropy(params, dic_params=dic_params, empirical_entropy=self.cfg.trainer.empirical_entropy).mean(dim=0)
-
-
-        loss_elbo = loss_g + KL_loss
-        dic_regul_encoder = regularization_encoder(dic_params, self.encoder, self.cfg, self.logger, step)
-        for key, item in dic_regul_encoder.items():
-            loss_elbo += item
-        loss_elbo.backward()
-        self.grad_clipping_all_net(["encoder"], step=step)
-        self.opt_encoder.step()
-
-
-
-        
+        dic_total.update(self.train_approx_posterior(x, step))
+        dic_total.update(self.train_approx_posterior_reverse(x, z_g_k, step))
 
         dic_total.update({
             "loss_e": loss_e,
@@ -95,10 +65,7 @@ class ContrastiveDivergence(AbstractTrainer):
             "mse_loss": mse_loss,
             "en_pos": en_pos,
             "en_neg": en_neg,
-            "loss_elbo": loss_elbo,
-            "KL_loss": KL_loss,
-            "entropy_posterior": entropy_posterior,
             })
-        
+         
         
         return dic_total

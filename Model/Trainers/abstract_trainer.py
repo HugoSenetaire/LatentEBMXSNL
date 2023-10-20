@@ -172,12 +172,12 @@ class AbstractTrainer:
     
     def grad_clipping_all_net(self, liste_name = [], step=None):
         for net_name in liste_name:
-            if not hasattr(self.cfg, "optim_"+net_name) or hasattr(self, "opt"+net_name):
-                raise ValueError("cfg.optim_{} does not exist".format(net_name))
+            if net_name == "reverse_encoder":
+                current_optim_cfg = getattr(self.cfg,"optim_encoder")
             else :
                 current_optim_cfg = getattr(self.cfg,"optim_"+net_name)
-                net = getattr(self, net_name)
-                current_optim = getattr(self, "opt_"+net_name)
+            net = getattr(self, net_name)
+            current_optim = getattr(self, "opt_"+net_name)
 
         grad_clipping(net, net_name, current_optim_cfg, current_optim, self.logger, step=step)
 

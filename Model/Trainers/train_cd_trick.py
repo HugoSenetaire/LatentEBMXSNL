@@ -4,12 +4,14 @@ import torch
 
 from ..Regularization import regularization, regularization_encoder
 
-from .abstract_trainer import AbstractTrainer
+from ..Utils import log
+from .abstract_no_approx_posterior import NoApproxPosterior
 
 
-class ContrastiveDivergenceLogTrick(AbstractTrainer):
+class ContrastiveDivergenceLogTrick(NoApproxPosterior):
     def __init__(self, cfg,):
         super().__init__(cfg,)
+
 
 
     def train_step(self, x, step):
@@ -49,9 +51,11 @@ class ContrastiveDivergenceLogTrick(AbstractTrainer):
         energy_posterior = self.energy(z_g_k.detach())
         z_proposal = self.proposal.sample(z_g_k.shape)
         energy_proposal = self.energy(z_proposal.detach())
+
         base_dist_z_proposal = self.prior.log_prob(z_proposal)
         base_dist_z_posterior = self.prior.log_prob(z_g_k)
         base_dist_z_base_dist = self.prior.log_prob(z_e_0)
+        
         proposal_z_proposal = self.proposal.log_prob(z_proposal)
         proposal_z_posterior = self.proposal.log_prob(z_g_k)
         proposal_z_base_dist = self.proposal.log_prob(z_e_0)
@@ -68,34 +72,10 @@ class ContrastiveDivergenceLogTrick(AbstractTrainer):
 
         self.opt_energy.step()
 
+        dic_feedback.update(self.train_approx_posterior(x, step))
+        dic_feedback.update({self.train_approx_posterior_reverse(x, z_g_k, step)})
 
 
-        # Train the encoder to go to regular ebm, not really the same thing, it's just so that I get better approximation, could do reverse KL ?
-        self.opt_encoder.zero_grad()
-        params = self.encoder(x)
-        dic_params, dic_params_feedback = self.encoder.latent_distribution.get_params(params)
-        dic_feedback.update(dic_params_feedback)
-        # Reparam trick
-        z_q = self.encoder.latent_distribution.r_sample(params, dic_params=dic_params).reshape(x.shape[0], self.cfg.trainer.nz)
-        x_hat = self.generator(z_q)
-        # Reconstruction loss :
-        loss_g = self.generator.get_loss(x_hat, x).reshape(x.shape[0]).mean(dim=0)
-
-        # KL without ebm
-        KL_loss = self.encoder.latent_distribution.calculate_kl(self.prior, params, z_q, dic_params=dic_params, empirical_kl=self.cfg.trainer.empirical_kl).mean(dim=0)
-
-        # Entropy posterior
-        entropy_posterior = self.encoder.latent_distribution.calculate_entropy(params, dic_params=dic_params, empirical_entropy=self.cfg.trainer.empirical_entropy).mean(dim=0)
-
-
-        self.grad_clipping_all_net(["encoder"], step=step)
-        loss_elbo = loss_g + KL_loss
-        dic_regul_encoder = regularization_encoder(dic_params, self.encoder, self.cfg, self.logger, step=step)
-        for key, item in dic_regul_encoder.items():
-            loss_elbo += item
-        dic_feedback.update(dic_regul_encoder)
-        loss_elbo.backward()
-        self.opt_encoder.step()
 
 
 
@@ -111,9 +91,8 @@ class ContrastiveDivergenceLogTrick(AbstractTrainer):
             "en_pos": energy_posterior.mean().item(),
             "en_neg": energy_proposal.mean().item(),
             "log_z" : log_partition_estimate.item(),
-            "elbo_loss": -loss_elbo.mean().item(),
-            "kl_loss": KL_loss.mean().item(),
-            "entropy_posterior": entropy_posterior.mean().item(),
+         
         })
 
         return dic_feedback
+    
