@@ -30,7 +30,7 @@ class GaussianPosterior(nn.Module):
         dic_params["mu"]= mu
         dic_params["log_var"]= log_var
         dic_params_feedback["||mu||"]= mu.norm(dim=1)
-        dic_params_feedback["||log_var||"]= log_var.norm(dim=1)
+        dic_params_feedback["log_var_mean"]= log_var.mean(dim=1)
         return dic_params, dic_params_feedback
 
 
@@ -56,6 +56,14 @@ class GaussianPosterior(nn.Module):
         else :
             # Empirical KL
             return self.log_prob(params, samples) - prior.log_prob(samples)
+        
+    def get_plots(self, params, dic_params = None):
+        if dic_params is None :
+            mu, log_var = params.chunk(2, dim=1)
+        else :
+            mu, log_var = dic_params["mu"], dic_params["log_var"]
+        return mu, log_var
+
 
     def calculate_entropy(self, params, dic_params = None, empirical_entropy = False):
         if dic_params is None :
@@ -66,22 +74,22 @@ class GaussianPosterior(nn.Module):
         return entropy_posterior.reshape(params.shape[0], self.cfg.trainer.nz).sum(1)
 
 
-    def log_prob(self, params, x_hat, dic_params = None):
+    def log_prob(self, params, z_q, dic_params = None):
         '''
-        Get the log probability of the given x_hat given the parameters of the distribution.
+        Get the log probability of the given z_q given the parameters of the distribution.
         Handle also for multiple inputs
         :param params: The parameters of the distribution
-        :param x_hat: The sample to evaluate
+        :param z_q: The sample to evaluate
         '''
         if dic_params is None :
             mu, log_var = params.chunk(2, dim=1)
         else :
             mu, log_var = dic_params["mu"], dic_params["log_var"]
-        if x_hat.shape[0] == mu.shape[0]:
-            return torch.distributions.Normal(mu, torch.exp(log_var/2)).log_prob(x_hat).reshape(mu.shape[0], self.cfg.trainer.nz).sum(1)
+        if z_q.shape[0] == mu.shape[0]:
+            return torch.distributions.Normal(mu, torch.exp(log_var/2)).log_prob(z_q).reshape(mu.shape[0], self.cfg.trainer.nz).sum(1)
         else :
-            x_hat = x_hat.reshape(-1, *mu.shape)
-            return torch.distributions.Normal(mu, torch.exp(log_var/2)).log_prob(x_hat).reshape(x_hat.shape[0], mu.shape[0], self.cfg.trainer.nz).sum(2)
+            z_q = z_q.reshape(-1, *mu.shape)
+            return torch.distributions.Normal(mu, torch.exp(log_var/2)).log_prob(z_q).reshape(z_q.shape[0], mu.shape[0], self.cfg.trainer.nz).sum(2)
 
 
 
@@ -105,19 +113,19 @@ class GaussianPosterior(nn.Module):
 #         return mu_expanded + torch.exp(log_var_expanded/2) * epsilon
 
 
-#     def log_prob(self, params, x_hat):
+#     def log_prob(self, params, z_q):
 #         '''
-#         Get the log probability of the given x_hat given the parameters of the distribution.
+#         Get the log probability of the given z_q given the parameters of the distribution.
 #         Handle also for multiple inputs
 #         :param params: The parameters of the distribution
-#         :param x_hat: The sample to evaluate
+#         :param z_q: The sample to evaluate
 #         '''
 #         mu, log_var = params.chunk(2, dim=1)
-#         if x_hat.shape[0] == mu.shape[0]:
-#             return torch.distributions.Normal(mu, torch.exp(log_var/2)).log_prob(x_hat).reshape(mu.shape[0], self.cfg.trainer.nz).sum(1)
+#         if z_q.shape[0] == mu.shape[0]:
+#             return torch.distributions.Normal(mu, torch.exp(log_var/2)).log_prob(z_q).reshape(mu.shape[0], self.cfg.trainer.nz).sum(1)
 #         else :
-#             mu_expanded = mu.unsqueeze(0).expand(x_hat.shape[0], *mu.shape)
-#             log_var_expanded = log_var.unsqueeze(0).expand(x_hat.shape[0], *log_var.shape)
-#             return torch.distributions.Normal(mu_expanded, torch.exp(log_var_expanded/2)).log_prob(x_hat).reshape(x_hat.shape[0], mu.shape[0], self.cfg.trainer.nz).sum(2)
+#             mu_expanded = mu.unsqueeze(0).expand(z_q.shape[0], *mu.shape)
+#             log_var_expanded = log_var.unsqueeze(0).expand(z_q.shape[0], *log_var.shape)
+#             return torch.distributions.Normal(mu_expanded, torch.exp(log_var_expanded/2)).log_prob(z_q).reshape(z_q.shape[0], mu.shape[0], self.cfg.trainer.nz).sum(2)
 
 

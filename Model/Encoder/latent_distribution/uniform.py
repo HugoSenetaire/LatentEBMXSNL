@@ -55,8 +55,8 @@ class UniformPosterior(nn.Module):
         dic_params["min"] = min_aux
         dic_params["max"] = max_aux
 
-        dic_params_feedback["||min||"]= min_aux.norm(dim=1)
-        dic_params_feedback["||max||"]= max_aux.norm(dim=1)
+        dic_params_feedback["min_avg"]= min_aux.mean(dim=1)
+        dic_params_feedback["max_avg"]= max_aux.mean(dim=1)
 
         return dic_params, dic_params_feedback
 
@@ -67,17 +67,25 @@ class UniformPosterior(nn.Module):
         min_aux, max_aux = dic_params["min"], dic_params["max"]
         return torch.distributions.Uniform(min_aux, max_aux)
 
+
+    def get_plots(self, params, dic_params = None):
+        if dic_params is None :
+            dic_params, _ = self.get_params(params)
+        min_aux, max_aux = dic_params["min"], dic_params["max"]
+        mu = (min_aux + max_aux)/2
+        log_var = torch.log((max_aux - min_aux)**2/12)
+        return mu, log_var
     
     def r_sample(self, params, n_samples=1, dic_params = None):
         return self.get_distribution(params, dic_params = dic_params).rsample((n_samples,))
 
-    def log_prob(self, params, x_hat, dic_params = None):
-        if x_hat.shape[0] == params.shape[0]:
-            return self.get_distribution(params, dic_params=dic_params).log_prob(x_hat).reshape(params.shape[0], self.cfg.trainer.nz).sum(1)
+    def log_prob(self, params, z_q, dic_params = None):
+        if z_q.shape[0] == params.shape[0]:
+            return self.get_distribution(params, dic_params=dic_params).log_prob(z_q).reshape(params.shape[0], self.cfg.trainer.nz).sum(1)
         else :
-            x_hat = x_hat.reshape(-1, params.shape[0], self.cfg.trainer.nz)
+            z_q = z_q.reshape(-1, params.shape[0], self.cfg.trainer.nz)
             dist = self.get_distribution(params, dic_params=dic_params)
-            log_prob = dist.log_prob(x_hat).reshape(-1, params.shape[0], self.cfg.trainer.nz).sum(2)
+            log_prob = dist.log_prob(z_q).reshape(-1, params.shape[0], self.cfg.trainer.nz).sum(2)
             return log_prob
 
     
