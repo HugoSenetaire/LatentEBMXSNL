@@ -1,0 +1,25 @@
+defaults:
+  - base_config
+  - dataset : mnist
+  - encoder : conv_mnist
+  - energy : energy_mnist
+  - generator: conv_mnist
+  - prior : uniform
+  - extra_prior : uniform
+  - regularization : no_reg
+  - regularization_encoder : no_reg
+  - sampler_prior : langevin_clamped
+  - sampler_posterior : langevin_clamped
+  - optim_encoder : adam
+  - optim_energy : adam
+  - optim_generator : adam
+  - optim_prior : adam
+  - scheduler_encoder : exponential_lr
+  - scheduler_energy : exponential_lr
+  - scheduler_generator : exponential_lr
+  - scheduler_prior : exponential_lr
+  - machine : titans
+  - trainer: contrastive_divergence
+
+
+
