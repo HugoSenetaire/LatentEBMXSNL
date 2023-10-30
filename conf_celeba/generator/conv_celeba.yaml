@@ -1,6 +1,6 @@
 defaults:
   - base_generator
-network_name: 'conv_svhn'
+network_name: 'conv_celeba'
 loss_reconstruction_name: 'gaussian'
 activation_name: 'tanh'
 ngf: 128

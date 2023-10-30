@@ -1,9 +1,9 @@
 defaults:
   - base_config
-  - dataset : mnist
-  - encoder : conv_mnist
-  - energy : energy_mnist
-  - generator: conv_mnist
+  - dataset : celeba
+  - encoder : conv_celeba
+  - energy : energy_celeba
+  - generator: conv_celeba
   - prior : uniform
   - extra_prior : uniform
   - regularization : no_reg

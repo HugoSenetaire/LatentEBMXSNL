@@ -4,7 +4,7 @@ class _Encoder_CELEBA(nn.Module):
     def __init__(self, nef, nz, nc):
         super().__init__()
 
-        self.gen = nn.Sequential(
+        self.conv_net = nn.Sequential(
             nn.Conv2d(nc, nef, 4, 2, 1),
             nn.LeakyReLU(),
 
@@ -23,7 +23,7 @@ class _Encoder_CELEBA(nn.Module):
             nn.Conv2d(nef*8, nef*16, 4, 2, 1, ),
             nn.LeakyReLU(),
 
-            nn.Conv2d( nef*16, nz, 4, 1, 0, ),
+            nn.Conv2d(nef*16, nz, 4, 1, 0, ),
         )
         self.fc=nn.Sequential(
                 nn.Linear(nz, 2*nz),
