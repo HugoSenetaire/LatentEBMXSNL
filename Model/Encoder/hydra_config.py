@@ -13,6 +13,10 @@ class BaseEncoderConfig:
     network_name: str = MISSING
     activation_name: Optional[Union[str,None]] = None
     nef: int = MISSING
+    latent_distribution_name: str = MISSING
+    forced_latent_min: Optional[Union[float, None]]= None # Just used in Uniform
+    forced_latent_max: Optional[Union[float, None]]= None # Just used in Uniform
+    sigmoid_version: Optional[bool] = False
 
 
 def store_base_encoder(cs: ConfigStore):

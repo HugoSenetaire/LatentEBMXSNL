@@ -5,7 +5,9 @@ defaults:
   - energy : energy_svhn
   - generator: conv_svhn
   - prior : gaussian
-  - regularization : l2_grad
+  - extra_prior : gaussian
+  - regularization : no_reg
+  - regularization_encoder : no_reg
   - sampler_prior : langevin
   - sampler_posterior : langevin
   - optim_encoder : adam
@@ -17,7 +19,7 @@ defaults:
   - scheduler_generator : exponential_lr
   - scheduler_prior : exponential_lr
   - machine : titans
-  - trainer: prior_training_detached
+  - trainer: contrastive_divergence
 
 
 

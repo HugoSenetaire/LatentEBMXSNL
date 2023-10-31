@@ -19,7 +19,7 @@ import hydra_config
 root = "/scratch/hhjs/data"
 
 
-@hydra.main(version_base="1.1", config_path="conf_mnist_2dlatent", config_name="conf",)
+@hydra.main(version_base="1.1", config_path="conf_mnist", config_name="conf",)
 def main(cfg):
     device = "cuda" if t.cuda.is_available() else "cpu"
     cfg.trainer.device = device

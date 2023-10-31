@@ -1,0 +1,6 @@
+defaults :
+  - base_uniform
+prior_name : uniform
+min : 0.0
+max : 1.0
+

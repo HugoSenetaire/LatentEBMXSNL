@@ -1,6 +1,6 @@
 defaults:
   - base_dataset_name    
-dataset_name: CALTECH101SILHOUETTES
+dataset_name: SVHN
 batch_size: 256
 batch_size_val: 256
 nc : 3

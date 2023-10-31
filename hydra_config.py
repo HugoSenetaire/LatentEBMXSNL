@@ -16,7 +16,7 @@ from Model.Generator.hydra_config import store_base_generator, BaseGeneratorConf
 from Model.Optim.hydra_config import store_base_optim, BaseOptimConfig
 from Model.Sampler.hydra_config import store_base_langevin_sampler, BaseLangevinSampler
 from Model.Trainers.hydra_config import store_base_trainer, BaseTrainerConfig
-from Model.Prior.hydra_config import store_base_prior, BasePriorConfig
+from Model.Prior.hydra_config import store_base_prior, BasePriorConfig, store_base_extra_prior
 from Dataset.hydra_config import store_base_dataset, BaseDatasetConfig
 from Model.Regularization.hydra_config import store_base_regularization, BaseRegularizationConfig, store_base_regularization_encoder, BaseRegularizationEncoderConfig
 from Model.Optim.Schedulers.hydra_config import store_base_scheduler, BaseSchedulerConfig
@@ -44,6 +44,7 @@ class Config:
     energy: BaseEnergyConfig = MISSING
     generator: BaseGeneratorConfig = MISSING
     prior : BasePriorConfig = MISSING
+    extra_prior : BasePriorConfig = MISSING
     regularization: BaseRegularizationConfig = MISSING
     regularization_encoder: BaseRegularizationEncoderConfig = MISSING
     sampler_prior: BaseLangevinSampler = MISSING
@@ -86,6 +87,7 @@ def store_main():
     store_base_energy(cs)
     store_base_generator(cs)
     store_base_prior(cs)
+    store_base_extra_prior(cs)
 
     store_base_optim(cs)
     store_base_scheduler(cs)

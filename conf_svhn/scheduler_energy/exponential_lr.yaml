@@ -1,0 +1,3 @@
+defaults:
+  - base_exponential_lr_scheduler
+gamma: 0.998

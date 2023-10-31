@@ -1,0 +1,7 @@
+defaults:
+  - base_generator
+network_name: 'conv_celeba'
+loss_reconstruction_name: 'gaussian'
+activation_name: 'tanh'
+ngf: 128
+llhd_sigma: 0.3

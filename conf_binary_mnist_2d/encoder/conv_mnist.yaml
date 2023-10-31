@@ -2,4 +2,5 @@ defaults:
   - base_encoder
 network_name: 'conv_mnist'
 activation_name: null
+latent_distribution_name: 'gaussian'
 nef: 16

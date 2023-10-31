@@ -126,7 +126,6 @@ def load_binary_mnist(cfg, **kwargs):
         wget.download(url="http://www.cs.toronto.edu/~larocheh/public/datasets/binarized_mnist/binarized_mnist_test.amat", out=os.path.join(cfg.dataset.root_dataset, "binarized_mnist_test.amat"))
     xtest = np.loadtxt(os.path.join(cfg.dataset.root_dataset, "binarized_mnist_test.amat"),dtype=np.float32).reshape(-1,1,28, 28,order='C')
 
-    print(xtrain.shape)
     ds_train = torch.utils.data.TensorDataset(torch.from_numpy(xtrain), torch.tensor(np.zeros(xtrain.shape[0])))
     ds_valid = torch.utils.data.TensorDataset(torch.from_numpy(xvalid), torch.tensor(np.zeros(xvalid.shape[0])))
     ds_test = torch.utils.data.TensorDataset(torch.from_numpy(xtest), torch.tensor(np.zeros(xtest.shape[0])))
@@ -170,25 +169,19 @@ def load_celeba(cfg, **kwargs):
 def load_svhn(cfg, **kwargs):
     ds_train = tv.datasets.SVHN('{}/svhn'.format(cfg.dataset.root_dataset), download=True,
                                              transform=tfm.Compose([
-                                             tfm.Resize(cfg.img_size),
+                                             tfm.Resize(cfg.dataset.img_size),
                                              tfm.ToTensor(),
                                              tfm.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
                                ]))
-    ds_val = tv.datasets.SVHN('{}/svhn'.format(cfg.dataset.root_dataset), download=True, split='test',
-                                             transform=tfm.Compose([
-                                             tfm.Resize(cfg.img_size),
-                                             tfm.ToTensor(),
-                                             tfm.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-                               ]))
-    
+
     ds_test = tv.datasets.SVHN('{}/svhn'.format(cfg.dataset.root_dataset), download=True, split='test',
                                                 transform=tfm.Compose([
-                                                tfm.Resize(cfg.img_size),
+                                                tfm.Resize(cfg.dataset.img_size),
                                                 tfm.ToTensor(),
                                                 tfm.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
                                 ]))
     
-
+    ds_train, ds_val = torch.utils.data.random_split(ds_train, [int(0.9*len(ds_train)), len(ds_train) - int(0.9*len(ds_train))])
     dataloader_train = torch.utils.data.DataLoader(ds_train, batch_size=cfg.dataset.batch_size, shuffle=True, num_workers=0)
     dataloader_val = torch.utils.data.DataLoader(ds_val, batch_size=cfg.dataset.batch_size_val, shuffle=False, num_workers=0)
     dataloader_test = torch.utils.data.DataLoader(ds_test, batch_size=cfg.dataset.batch_size_val, shuffle=False, num_workers=0)
