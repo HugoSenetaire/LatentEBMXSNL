@@ -126,7 +126,6 @@ def load_binary_mnist(cfg, **kwargs):
         wget.download(url="http://www.cs.toronto.edu/~larocheh/public/datasets/binarized_mnist/binarized_mnist_test.amat", out=os.path.join(cfg.dataset.root_dataset, "binarized_mnist_test.amat"))
     xtest = np.loadtxt(os.path.join(cfg.dataset.root_dataset, "binarized_mnist_test.amat"),dtype=np.float32).reshape(-1,1,28, 28,order='C')
 
-    print(xtrain.shape)
     ds_train = torch.utils.data.TensorDataset(torch.from_numpy(xtrain), torch.tensor(np.zeros(xtrain.shape[0])))
     ds_valid = torch.utils.data.TensorDataset(torch.from_numpy(xvalid), torch.tensor(np.zeros(xvalid.shape[0])))
     ds_test = torch.utils.data.TensorDataset(torch.from_numpy(xtest), torch.tensor(np.zeros(xtest.shape[0])))
