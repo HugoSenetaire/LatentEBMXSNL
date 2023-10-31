@@ -2,5 +2,5 @@ defaults :
   - base_langevin_sampler
 K : 60
 a : 4e-1
-clamp_min_data: -1.0
+clamp_min_data: 0.0
 clamp_max_data: 1.0
