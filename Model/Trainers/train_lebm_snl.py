@@ -67,7 +67,6 @@ class SNELBO(AbstractTrainer):
         loss_total.backward()
         self.grad_clipping_all_net(["energy", "generator", "encoder"], step)
 
-        mu_q, log_var_q = param.chunk(2,1)
         dic_feedback.update({ 
             "entropy_posterior":entropy_posterior.item(),
             "loss_ebm": loss_ebm.item(),
@@ -80,8 +79,6 @@ class SNELBO(AbstractTrainer):
             "energy_base_dist": energy_base_dist.mean().item(),
             "approx_elbo" : -loss_total.item(),
             "elbo_no_ebm" : -loss_g.item() - KL_loss.item(),
-            "mu_q": mu_q.flatten(1).mean(1).mean().item(),
-            "log_var_q": log_var_q.flatten(1).mean(1).mean().item(),
         })
 
         self.opt_energy.step()

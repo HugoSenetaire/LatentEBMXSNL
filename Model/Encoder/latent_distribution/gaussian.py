@@ -29,8 +29,8 @@ class GaussianPosterior(nn.Module):
         mu, log_var = param.chunk(2, dim=1)
         dic_params["mu"]= mu
         dic_params["log_var"]= log_var
-        dic_params_feedback["||mu||"]= mu.norm(dim=1)
-        dic_params_feedback["log_var_mean"]= log_var.mean(dim=1)
+        dic_params_feedback["||mu_encoder||"]= mu.norm(dim=1)
+        dic_params_feedback["log_var_encoder_mean"]= log_var.mean(dim=1)
         return dic_params, dic_params_feedback
 
 
@@ -47,12 +47,13 @@ class GaussianPosterior(nn.Module):
             mu_q, log_var_q = params.chunk(2, dim=1)
         else :
             mu_q, log_var_q = dic_params["mu"], dic_params["log_var"]
+            
         if self.cfg.prior.prior_name == 'gaussian' and not empirical_kl:
             mu_q, log_var_q = params.chunk(2, dim=1)
             mu_prior, log_var_prior = prior.mu.unsqueeze(0), prior.log_var.unsqueeze(0)
-            kl_loss = 0.5 * (log_var_prior - log_var_q + (torch.exp(log_var_q) + (mu_q - mu_prior).pow(2)) / torch.exp(log_var_prior) - 1)
-            kl_loss = kl_loss.reshape(samples.shape[0], self.cfg.trainer.nz).sum(1)
-            return kl_loss
+            kl = 0.5 * (log_var_prior - log_var_q + (torch.exp(log_var_q) + (mu_q - mu_prior).pow(2)) / torch.exp(log_var_prior) - 1)
+            kl = kl.reshape(samples.shape[0], self.cfg.trainer.nz).sum(1)
+            return kl
         else :
             # Empirical KL
             return self.log_prob(params, samples) - prior.log_prob(samples)

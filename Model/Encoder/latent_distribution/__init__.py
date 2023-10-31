@@ -1,5 +1,6 @@
 from .gaussian import GaussianPosterior
 from .uniform import UniformPosterior
+from .beta import BetaPosterior
 
 
 def get_latent_distribution(distribution_name, cfg):
@@ -10,5 +11,7 @@ def get_latent_distribution(distribution_name, cfg):
         # return GaussianCylindricPosterior(cfg)
     elif distribution_name == 'uniform':
         return UniformPosterior(cfg)
+    elif distribution_name == 'beta':
+        return BetaPosterior(cfg)
     else:
         raise NotImplementedError

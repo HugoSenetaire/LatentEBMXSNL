@@ -413,12 +413,7 @@ class AbstractTrainer:
 
 
             param = self.encoder(x[:batch_save])
-            if self.cfg.encoder.latent_distribution_name == "gaussian":
-                sample_mean=param.chunk(2, 1)[0].reshape(-1, self.cfg.trainer.nz, 1, 1)
-            elif self.cfg.encoder.latent_distribution_name == "uniform":
-                dic_param, _ = self.encoder.latent_distribution.get_params(param)
-                min_aux, max_aux = dic_param['min'], dic_param['max']
-                sample_mean = (min_aux + max_aux)/2
+            sample_mean, sample_std = self.encoder.latent_distribution.get_plots(param,)
 
             x_reconstruction, mu_reconstruction =self.generator.sample(sample_mean, return_mean=True)
             draw(x_reconstruction.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleReconstruction")
@@ -465,7 +460,7 @@ class AbstractTrainer:
                 self.plot_samples_2d(liste_samples, -30, 30, liste_samples_name, step, params=params, params_reverse=params_reverse)
 
             elif self.cfg.prior.prior_name =='uniform' :
-                self.plot_samples_2d(liste_samples, self.cfg.prior.min-1e-2, self.cfg.prior.max+1e-2, liste_samples_name, step, params=params, params_reverse=params_reverse)
+                self.plot_samples_2d(liste_samples, self.cfg.prior.min+1e-2, self.cfg.prior.max-1e-2, liste_samples_name, step, params=params, params_reverse=params_reverse)
                 
             else :
                 raise ValueError("Prior name not recognized")
@@ -503,6 +498,7 @@ class AbstractTrainer:
         xy = np.concatenate([xx.reshape(-1, 1), yy.reshape(-1, 1)], axis=1)
         xy = torch.from_numpy(xy).float().to(device)
 
+
         energy_base_dist = - self.prior.log_prob(xy).reshape(grid_coarseness,grid_coarseness,)
         energy_extra_prior = - self.extra_prior.log_prob(xy).reshape(grid_coarseness,grid_coarseness)
         just_energy = self.energy(xy).reshape(grid_coarseness, grid_coarseness)
@@ -511,20 +507,21 @@ class AbstractTrainer:
 
         energy_list = [energy_base_dist, energy_prior, energy_extra_prior, just_energy]
         energy_list_names = ["Base Distribution", "EBM Prior", "Extra Prior", "Just EBM"]
-
+        # if params is not None and self.cfg.encoder.latent_distribution_name == 'gaussian' :
         if params is not None and self.cfg.encoder.latent_distribution_name != 'uniform':
         # == "gaussian": # Does not work with uniform distribution
             dic_params, _ = self.encoder.latent_distribution.get_params(params)
             dist_posterior = self.encoder.latent_distribution.get_distribution(params, dic_params=dic_params)
-            aggregate = AggregatePosterior(dist_posterior, params.shape[0])
+            aggregate = AggregatePosterior(dist_posterior, params.shape[0], device = device)
             aggregate_energy = -aggregate.log_prob(xy).reshape(grid_coarseness, grid_coarseness)
             energy_list.append(aggregate_energy)
             energy_list_names.append("Aggregate Posterior")
-
+            
         if params_reverse is not None and self.cfg.encoder.latent_distribution_name != 'uniform':
+        # if params_reverse is not None and self.cfg.encoder.latent_distribution_name == 'gaussian':
             dic_params, _ = self.reverse_encoder.latent_distribution.get_params(params)
             dist_posterior = self.reverse_encoder.latent_distribution.get_distribution(params, dic_params=dic_params)
-            aggregate = AggregatePosterior(dist_posterior, params.shape[0])
+            aggregate = AggregatePosterior(dist_posterior, params.shape[0], device = device)
             aggregate_energy = -aggregate.log_prob(xy).reshape(grid_coarseness, grid_coarseness)
             energy_list.append(aggregate_energy)
             energy_list_names.append("Aggregate Posterior Reverse")

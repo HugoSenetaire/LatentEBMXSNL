@@ -83,15 +83,14 @@ def calculate_frechet(images_real, images_fake,):
     idx = 0
     block_min = liste_min_batch_size.pop(0)
     assert batch_size>=block_min
-    # print(block_min)
     while len(liste_min_batch_size)>0 and batch_size >= liste_min_batch_size[0]:
         block_min = liste_min_batch_size.pop(0)
         idx+=1
     device = torch.device("cpu")
     model = InceptionV3([idx])
     model = model.to(device)
-    images_fake = images_fake.to(device)
-    images_real = images_real.to(device)
+    images_fake = images_fake.to(device).expand(batch_size, 3, -1, -1)
+    images_real = images_real.to(device).expand(batch_size, 3, -1, -1)
 
     mu_1, std_1 = calculate_activation_statistics(images_real, model, device=device)
     mu_2, std_2 = calculate_activation_statistics(images_fake, model, device=device)
