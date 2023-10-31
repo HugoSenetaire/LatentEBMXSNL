@@ -34,12 +34,12 @@ class UniformPosterior(nn.Module):
             kl = log_prob_posterior - log_prob_prior
             return kl.mean(0)
         
-    def calculate_entropy(self, params, dic_params = None, empirical_entropy = False):
+    def calculate_entropy(self, params, dic_params = None, empirical_entropy = False, n_samples=100):
         if dic_params is None :
             dic_params, _ = self.get_params(params)
         min_aux, max_aux = dic_params["min"], dic_params["max"]
         if empirical_entropy:
-            return -self.log_prob(params, self.r_sample(params, 1000, dic_params=dic_params), dic_params=dic_params).reshape(-1, params.shape[0]).mean(0)
+            return -self.log_prob(params, self.r_sample(params, n_samples=n_samples, dic_params=dic_params), dic_params=dic_params).reshape(-1, params.shape[0]).mean(0)
         return torch.log(max_aux - min_aux).reshape(params.shape[0], self.cfg.trainer.nz).sum(1)
     
 

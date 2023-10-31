@@ -68,7 +68,7 @@ def test_gaussian():
 
     # Test entropy :
     entropy_formula = gaussian_posterior.calculate_entropy(param, dic_params=dic_params)
-    entropy_empirical = gaussian_posterior.calculate_entropy(param, dic_params=dic_params, empirical_entropy=True)
+    entropy_empirical = gaussian_posterior.calculate_entropy(param, dic_params=dic_params, empirical_entropy=True, n_samples=100000)
 
     assert(entropy_formula.shape == (2,)), "The entropy should be a vector of size 2"
     assert(entropy_empirical.shape == (2,)), "The entropy should be a vector of size 2"

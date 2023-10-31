@@ -69,11 +69,15 @@ class GaussianPosterior(nn.Module):
         return mu, log_var
 
 
-    def calculate_entropy(self, params, dic_params = None, empirical_entropy = False):
+    def calculate_entropy(self, params, dic_params = None, empirical_entropy = False, n_samples=100):
         if dic_params is None :
             mu, log_var = params.chunk(2, dim=1)
         else :
             mu, log_var = dic_params["mu"], dic_params["log_var"]
+        if empirical_entropy:
+            samples = self.r_sample(params, n_samples=n_samples, dic_params=dic_params)
+            return -self.log_prob(params, samples, dic_params=dic_params).reshape(-1, params.shape[0]).mean(0)
+        
         entropy_posterior = 0.5 * (1 + log_var + math.log(2 * math.pi))
         return entropy_posterior.reshape(params.shape[0], self.cfg.trainer.nz).sum(1)
 
