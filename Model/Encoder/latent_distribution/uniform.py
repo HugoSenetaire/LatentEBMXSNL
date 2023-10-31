@@ -12,14 +12,13 @@ class UniformPosterior(nn.Module):
         else :
             self.forced_min = cfg.encoder.latent_min
             self.forced_max = cfg.encoder.latent_max
-            if cfg.encoder.sigmoid_version and self.forced_max is None or self.forced_min is None:
-                raise ValueError("If sigmoid version is used, forced_min and forced_max should be defined")
+        if cfg.encoder.sigmoid_version and self.forced_max is None or self.forced_min is None:
+            raise ValueError("If sigmoid version is used, forced_min and forced_max should be defined")
             
         self.sigmoid_version = self.cfg.encoder.sigmoid_version
 
 
     def calculate_kl(self, prior, params, samples, dic_params = None, empirical_kl = False):
-       
         if self.cfg.prior.prior_name == 'uniform' and not empirical_kl:
             if dic_params is None :
                 dic_params, _ = self.get_params(params)
@@ -30,12 +29,17 @@ class UniformPosterior(nn.Module):
             return torch.log(max_prior - min_prior).sum(1) - torch.log(max_approx_post - min_approx_post).sum(1)
         else :
             # Empirical KL 
-            return self.log_prob(params, samples, dic_params=dic_params) - prior.log_prob(samples)
+            log_prob_posterior = self.log_prob(params, samples, dic_params=dic_params).reshape(-1, params.shape[0])
+            log_prob_prior = prior.log_prob(samples).reshape(-1, params.shape[0])
+            kl = log_prob_posterior - log_prob_prior
+            return kl.mean(0)
         
     def calculate_entropy(self, params, dic_params = None, empirical_entropy = False):
         if dic_params is None :
             dic_params, _ = self.get_params(params)
         min_aux, max_aux = dic_params["min"], dic_params["max"]
+        if empirical_entropy:
+            return -self.log_prob(params, self.r_sample(params, 1000, dic_params=dic_params), dic_params=dic_params).reshape(-1, params.shape[0]).mean(0)
         return torch.log(max_aux - min_aux).reshape(params.shape[0], self.cfg.trainer.nz).sum(1)
     
 

@@ -17,14 +17,15 @@ class BetaPosterior(nn.Module):
 
     def calculate_kl(self, prior, params, samples, dic_params = None, empirical_kl = False):
         # Empirical KL 
-        posterior_log_prob = self.log_prob(params, samples, dic_params=dic_params)
-        prior_log_prob = prior.log_prob(samples)
-        kl = posterior_log_prob - prior_log_prob
-        return kl
+        log_prob_posterior = self.log_prob(params, samples, dic_params=dic_params).reshape(-1, params.shape[0])
+        log_prob_prior = prior.log_prob(samples).reshape(-1, params.shape[0])
+        kl = log_prob_posterior - log_prob_prior
+        return kl.mean(0)
         
-    def calculate_entropy(self, params, dic_params = None, empirical_entropy = False):
+        
+    def calculate_entropy(self, params, dic_params = None, empirical_entropy = False, n_samples=100):
         # Empirical entropy
-        samples = self.r_sample(params, n_samples=10, dic_params=dic_params)
+        samples = self.r_sample(params, n_samples=n_samples, dic_params=dic_params)
         return -self.log_prob(params, samples, dic_params=dic_params).mean(0)
     
 

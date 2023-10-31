@@ -12,7 +12,7 @@ class GaussianPosterior(nn.Module):
         # self.std = nn.Parameter(torch.ones((self.cfg.trainer.nz), device=self.cfg.trainer.device), requires_grad=False)
 
 
-    def r_sample(self, params, dic_params = None, n_samples=1):
+    def r_sample(self, params, n_samples=1, dic_params = None, ):
         if dic_params is None :
             mu, log_var = params.chunk(2, dim=1)
         else :
@@ -52,11 +52,14 @@ class GaussianPosterior(nn.Module):
             mu_q, log_var_q = params.chunk(2, dim=1)
             mu_prior, log_var_prior = prior.mu.unsqueeze(0), prior.log_var.unsqueeze(0)
             kl = 0.5 * (log_var_prior - log_var_q + (torch.exp(log_var_q) + (mu_q - mu_prior).pow(2)) / torch.exp(log_var_prior) - 1)
-            kl = kl.reshape(samples.shape[0], self.cfg.trainer.nz).sum(1)
+            kl = kl.reshape(params.shape[0], self.cfg.trainer.nz).sum(1)
             return kl
         else :
             # Empirical KL
-            return self.log_prob(params, samples) - prior.log_prob(samples)
+            log_prob_posterior = self.log_prob(params, samples, dic_params=dic_params).reshape(-1, params.shape[0])
+            log_prob_prior = prior.log_prob(samples).reshape(-1, params.shape[0])
+            kl = log_prob_posterior - log_prob_prior
+            return kl.mean(0)
         
     def get_plots(self, params, dic_params = None):
         if dic_params is None :
