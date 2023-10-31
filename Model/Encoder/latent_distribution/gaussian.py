@@ -30,7 +30,7 @@ class GaussianPosterior(nn.Module):
         dic_params["mu"]= mu
         dic_params["log_var"]= log_var
         dic_params_feedback["||mu_encoder||"]= mu.norm(dim=1)
-        dic_params_feedback["log_var_encoder_mean"]= log_var.mean(dim=1)
+        dic_params_feedback["var_encoder_mean"]= log_var.exp().mean(dim=1)
         return dic_params, dic_params_feedback
 
 
