@@ -189,6 +189,16 @@ def load_svhn(cfg, **kwargs):
     return dataloader_train, dataloader_val, dataloader_test, cfg
 
 
+def load_test_dataset(cfg, **kwargs):
+    ds_train = torch.utils.data.TensorDataset(torch.randn((100, cfg.dataset.nc, cfg.dataset.img_size, cfg.dataset.img_size)), torch.tensor(np.zeros(100)))
+    ds_eval = torch.utils.data.TensorDataset(torch.randn((100, cfg.dataset.nc, cfg.dataset.img_size, cfg.dataset.img_size)), torch.tensor(np.zeros(100)))
+    ds_test = torch.utils.data.TensorDataset(torch.randn((100, cfg.dataset.nc, cfg.dataset.img_size, cfg.dataset.img_size)), torch.tensor(np.zeros(100)))
+
+    dataloader_train = torch.utils.data.DataLoader(ds_train, batch_size=cfg.dataset.batch_size, shuffle=True, num_workers=0)
+    dataloader_eval = torch.utils.data.DataLoader(ds_eval, batch_size=cfg.dataset.batch_size_val, shuffle=False, num_workers=0)
+    dataloader_test = torch.utils.data.DataLoader(ds_test, batch_size=cfg.dataset.batch_size_val, shuffle=False, num_workers=0)
+
+    return dataloader_train, dataloader_eval, dataloader_test, cfg
 
 def get_dataset_and_loader(cfg, device):
     dataset = cfg.dataset.dataset_name
@@ -206,6 +216,8 @@ def get_dataset_and_loader(cfg, device):
         data_train, data_val, data_test, cfg = load_caltech101silhouettes(cfg)
     elif dataset == "CELEBA":
         data_train, data_val, data_test, cfg = load_celeba(cfg)
+    elif dataset == "TEST":
+        data_train, data_val, data_test, cfg = load_test_dataset(cfg)
     else :
         raise NotImplementedError("Unknown dataset: {}".format(dataset))
     return data_train, data_val, data_test
