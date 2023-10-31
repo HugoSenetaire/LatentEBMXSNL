@@ -1,0 +1,8 @@
+defaults:
+  - base_dataset_name    
+dataset_name: TEST
+batch_size: 32
+batch_size_val: 32
+nc : 3
+img_size : 28
+transform_back_name: "0_1"
