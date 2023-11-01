@@ -1,0 +1,5 @@
+defaults :
+  - base_langevin_sampler
+K : 20
+a : 1e-1
+hyperspherical: True
