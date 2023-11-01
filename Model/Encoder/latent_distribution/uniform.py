@@ -1,11 +1,12 @@
 import torch.nn as nn
 import torch
+from .abstract_latent_distribution import AbstractLatentDistribution
 
-class UniformPosterior(nn.Module):
+class UniformPosterior(AbstractLatentDistribution):
     def __init__(self, cfg):
-        super(UniformPosterior, self).__init__()
+        super(UniformPosterior, self).__init__(cfg=cfg)
          
-        self.cfg = cfg
+        self.lambda_nz = lambda nz : 2*nz
         if cfg.prior.prior_name == 'uniform':
             self.forced_min = cfg.prior.min
             self.forced_max = cfg.prior.max
@@ -28,18 +29,14 @@ class UniformPosterior(nn.Module):
             assert torch.all(max_approx_post<=max_prior), "The approximated posterior should be included in the prior"
             return torch.log(max_prior - min_prior).sum(1) - torch.log(max_approx_post - min_approx_post).sum(1)
         else :
-            # Empirical KL 
-            log_prob_posterior = self.log_prob(params, samples, dic_params=dic_params).reshape(-1, params.shape[0])
-            log_prob_prior = prior.log_prob(samples).reshape(-1, params.shape[0])
-            kl = log_prob_posterior - log_prob_prior
-            return kl.mean(0)
+            return super().calculate_kl(prior, params, samples, dic_params = dic_params, empirical_kl = empirical_kl)
         
     def calculate_entropy(self, params, dic_params = None, empirical_entropy = False, n_samples=100):
         if dic_params is None :
             dic_params, _ = self.get_params(params)
         min_aux, max_aux = dic_params["min"], dic_params["max"]
         if empirical_entropy:
-            return -self.log_prob(params, self.r_sample(params, n_samples=n_samples, dic_params=dic_params), dic_params=dic_params).reshape(-1, params.shape[0]).mean(0)
+            return super().calculate_entropy(params, dic_params = dic_params, empirical_entropy = empirical_entropy, n_samples=n_samples)
         return torch.log(max_aux - min_aux).reshape(params.shape[0], self.cfg.trainer.nz).sum(1)
     
 
@@ -79,17 +76,4 @@ class UniformPosterior(nn.Module):
         mu = (min_aux + max_aux)/2
         log_var = torch.log((max_aux - min_aux)**2/12)
         return mu, log_var
-    
-    def r_sample(self, params, n_samples=1, dic_params = None):
-        return self.get_distribution(params, dic_params = dic_params).rsample((n_samples,))
-
-    def log_prob(self, params, z_q, dic_params = None):
-        if z_q.shape[0] == params.shape[0]:
-            return self.get_distribution(params, dic_params=dic_params).log_prob(z_q).reshape(params.shape[0], self.cfg.trainer.nz).sum(1)
-        else :
-            z_q = z_q.reshape(-1, params.shape[0], self.cfg.trainer.nz)
-            dist = self.get_distribution(params, dic_params=dic_params)
-            log_prob = dist.log_prob(z_q).reshape(-1, params.shape[0], self.cfg.trainer.nz).sum(2)
-            return log_prob
-
     

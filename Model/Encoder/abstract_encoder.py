@@ -17,9 +17,10 @@ class AbstractEncoder(nn.Module):
         self.cfg = cfg
         self.reverse = reverse
         self.count =0
-        self.network = get_encoder_network(cfg.encoder.network_name, cfg.encoder.nef, nz, nc)
+        self.latent_distribution = get_latent_distribution(cfg.encoder.latent_distribution_name, cfg, )
+        self.lambda_nz = self.latent_distribution.lambda_nz
+        self.network = get_encoder_network(cfg.encoder.network_name, cfg.encoder.nef, nz, nc, lambda_nz=self.lambda_nz)
         self.activation = get_activation(cfg.encoder.activation_name)
-        self.latent_distribution = get_latent_distribution(cfg.encoder.latent_distribution_name, cfg)
 
     def forward(self, x,):
         param = self.network(x)

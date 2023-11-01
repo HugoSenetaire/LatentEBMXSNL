@@ -1,16 +1,27 @@
 
-
+from .abstract_latent_distribution import AbstractLatentDistribution
 import torch
 import torch.nn as nn
 import math 
 
-class GaussianPosterior(nn.Module):
+class GaussianPosterior(AbstractLatentDistribution):
     def __init__(self, cfg):
-        super().__init__()
+        super().__init__(cfg=cfg)
         self.cfg = cfg
         # self.mu = nn.Parameter(torch.zeros((self.cfg.trainer.nz), device=self.cfg.trainer.device), requires_grad=False)
         # self.std = nn.Parameter(torch.ones((self.cfg.trainer.nz), device=self.cfg.trainer.device), requires_grad=False)
+        self.lambda_nz = lambda nz: 2*nz
 
+    def get_params(self, param,):
+        # dic_params["mu"], dic_params["log_var"] = param.chunk(2, dim=1)
+        dic_params = {}
+        dic_params_feedback = {}
+        mu, log_var = param.chunk(2, dim=1)
+        dic_params["mu"]= mu
+        dic_params["log_var"]= log_var
+        dic_params_feedback["||mu_encoder||"]= mu.norm(dim=1)
+        dic_params_feedback["var_encoder_mean"]= log_var.exp().mean(dim=1)
+        return dic_params, dic_params_feedback
 
     def r_sample(self, params, n_samples=1, dic_params = None, ):
         if dic_params is None :
@@ -22,16 +33,7 @@ class GaussianPosterior(nn.Module):
         epsilon = torch.randn_like(mu_expanded)
         return mu_expanded + torch.exp(log_var_expanded/2) * epsilon
     
-    def get_params(self, param,):
-        # dic_params["mu"], dic_params["log_var"] = param.chunk(2, dim=1)
-        dic_params = {}
-        dic_params_feedback = {}
-        mu, log_var = param.chunk(2, dim=1)
-        dic_params["mu"]= mu
-        dic_params["log_var"]= log_var
-        dic_params_feedback["||mu_encoder||"]= mu.norm(dim=1)
-        dic_params_feedback["var_encoder_mean"]= log_var.exp().mean(dim=1)
-        return dic_params, dic_params_feedback
+
 
 
     def get_distribution(self, params, dic_params = None):
@@ -80,24 +82,6 @@ class GaussianPosterior(nn.Module):
         
         entropy_posterior = 0.5 * (1 + log_var + math.log(2 * math.pi))
         return entropy_posterior.reshape(params.shape[0], self.cfg.trainer.nz).sum(1)
-
-
-    def log_prob(self, params, z_q, dic_params = None):
-        '''
-        Get the log probability of the given z_q given the parameters of the distribution.
-        Handle also for multiple inputs
-        :param params: The parameters of the distribution
-        :param z_q: The sample to evaluate
-        '''
-        if dic_params is None :
-            mu, log_var = params.chunk(2, dim=1)
-        else :
-            mu, log_var = dic_params["mu"], dic_params["log_var"]
-        if z_q.shape[0] == mu.shape[0]:
-            return torch.distributions.Normal(mu, torch.exp(log_var/2)).log_prob(z_q).reshape(mu.shape[0], self.cfg.trainer.nz).sum(1)
-        else :
-            z_q = z_q.reshape(-1, *mu.shape)
-            return torch.distributions.Normal(mu, torch.exp(log_var/2)).log_prob(z_q).reshape(z_q.shape[0], mu.shape[0], self.cfg.trainer.nz).sum(2)
 
 
 

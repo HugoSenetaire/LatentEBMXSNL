@@ -26,7 +26,7 @@ class _Encoder_CELEBA(nn.Module):
             nn.Conv2d(nef*16, nz, 4, 1, 0, ),
         )
         self.fc=nn.Sequential(
-                nn.Linear(nz, 2*nz),
+                nn.Linear(nz, nz),
                 )
 
     def forward(self, x):

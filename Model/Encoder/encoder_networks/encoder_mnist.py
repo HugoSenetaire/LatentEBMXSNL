@@ -13,7 +13,7 @@ class _Encoder_MNIST(nn.Module):
                 nn.LeakyReLU(0.3),
         )
         self.fc=nn.Sequential(
-                nn.Linear(16*nef*8, 2*nz),
+                nn.Linear(16*nef*8, nz),
                 )
 
 
