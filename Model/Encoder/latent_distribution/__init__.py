@@ -1,6 +1,7 @@
 from .gaussian import GaussianPosterior
 from .uniform import UniformPosterior
 from .beta import BetaPosterior
+from .von_mises_fischer import VonMisesFischerPosterior
 
 
 def get_latent_distribution(distribution_name, cfg):
@@ -13,5 +14,7 @@ def get_latent_distribution(distribution_name, cfg):
         return UniformPosterior(cfg)
     elif distribution_name == 'beta':
         return BetaPosterior(cfg)
+    elif distribution_name == 'von_mises_fischer':
+        return VonMisesFischerPosterior(cfg)
     else:
         raise NotImplementedError
