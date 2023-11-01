@@ -31,15 +31,20 @@ class MixtureOfGaussianPriorConfig(BasePriorConfig):
     prior_name: str = "mixture_of_gaussian"
     nb_mixture: int = MISSING
 
+class HyperSphericalUniformPriorConfig(BasePriorConfig):
+    prior_name: str = "hyperspherical_uniform"
+
 
 def store_base_prior(cs: ConfigStore):
     cs.store(group="prior", name="base_prior", node=BasePriorConfig)
     cs.store(group="prior", name="base_gaussian", node=GaussianPriorConfig)
     cs.store(group="prior", name="base_mixture_of_gaussian", node=MixtureOfGaussianPriorConfig)
     cs.store(group="prior", name="base_uniform", node=UniformPriorConfig)
+    cs.store(group="prior", name="base_hyperspherical_uniform", node=HyperSphericalUniformPriorConfig)
 
 def store_base_extra_prior(cs: ConfigStore):
     cs.store(group="extra_prior", name="base_prior", node=BasePriorConfig)
     cs.store(group="extra_prior", name="base_gaussian", node=GaussianPriorConfig)
     cs.store(group="extra_prior", name="base_mixture_of_gaussian", node=MixtureOfGaussianPriorConfig)
     cs.store(group="extra_prior", name="base_uniform", node=UniformPriorConfig)
+    cs.store(group="extra_prior", name="base_hyperspherical_uniform", node=HyperSphericalUniformPriorConfig)
