@@ -27,7 +27,16 @@ class Sampler():
     
 
 class SampleLangevinPrior(nn.Module):
-    def __init__(self, K, a, clamp_min_data = None, clamp_max_data = None, clamp_min_grad = None, clamp_max_grad = None, clip_data_norm = None, clip_grad_norm = None):
+    def __init__(self,
+                K,
+                a,
+                clamp_min_data = None,
+                clamp_max_data = None,
+                clamp_min_grad = None,
+                clamp_max_grad = None,
+                clip_data_norm = None,
+                clip_grad_norm = None,
+                hyperspherical = False):
         super().__init__()
         self.K = K
         self.a = a
@@ -37,7 +46,7 @@ class SampleLangevinPrior(nn.Module):
         self.clamp_max_grad = clamp_max_grad
         self.clip_data_norm = clip_data_norm
         self.clip_grad_norm = clip_grad_norm
-
+        self.hyperspherical = hyperspherical
 
     def actual_energy(self, z, energy, base_dist):
         en = energy(z) - base_dist.log_prob(z).reshape(z.shape[0])
@@ -55,11 +64,22 @@ class SampleLangevinPrior(nn.Module):
             z.data = z.data - 0.5 * self.a * self.a * z_grad + self.a * torch.randn_like(z).data
 
             z.data = clamp_all(z.data, self.clip_data_norm, self.clamp_min_data, self.clamp_max_data, )
-        
+            if self.hyperspherical:
+                z.data = z.data / z.data.norm(dim=-1, keepdim=True)
+
         return z.detach(), z_grad_norm
     
 class SampleLangevinPosterior(nn.Module):
-    def __init__(self, K, a, clamp_min_data = None, clamp_max_data = None, clamp_min_grad = None, clamp_max_grad = None, clip_data_norm = None, clip_grad_norm = None):
+    def __init__(self,
+                K,
+                a,
+                clamp_min_data = None,
+                clamp_max_data = None,
+                clamp_min_grad = None,
+                clamp_max_grad = None,
+                clip_data_norm = None,
+                clip_grad_norm = None,
+                hyperspherical = False):
         super().__init__()
         self.K = K
         self.a = a
@@ -69,7 +89,7 @@ class SampleLangevinPosterior(nn.Module):
         self.clamp_max_grad = clamp_max_grad
         self.clip_data_norm = clip_data_norm
         self.clip_grad_norm = clip_grad_norm
-
+        self.hyperspherical = hyperspherical
 
     def actual_energy(self, z, energy, generator,):
         en = energy(z) + torch.norm(z, dim=1)
@@ -92,8 +112,11 @@ class SampleLangevinPosterior(nn.Module):
 
             z_grad_g_grad_norm = grad_g.view(x.shape[0], -1).norm(dim=1).mean()
             z_grad_e_grad_norm = grad_e.view(x.shape[0], -1).norm(dim=1).mean()
+            
 
             z.data = clamp_all(z.data, self.clip_data_norm, self.clamp_min_data, self.clamp_max_data,)
+            if self.hyperspherical:
+                z.data = z.data / z.data.norm(dim=-1, keepdim=True)
 
         return z.detach(), z_grad_g_grad_norm, z_grad_e_grad_norm
 

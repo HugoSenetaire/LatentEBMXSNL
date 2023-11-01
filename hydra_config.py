@@ -73,6 +73,11 @@ class Config:
         else :
             print("Using root dataset " + self.dataset.root_dataset)
 
+        if "hyperspherical" in self.prior.prior_name:
+            assert self.encoder.latent_distribution_name == "von_mises_fisher", "The encoder should be von_mises_fisher"
+            assert self.sampler_posterior.hyperspherical == True, "The sampler should be hyperspherical"
+            assert self.sampler_prior.hyperspherical == True, "The sampler should be hyperspherical"
+
 
 def store_main():
     cs = ConfigStore.instance()

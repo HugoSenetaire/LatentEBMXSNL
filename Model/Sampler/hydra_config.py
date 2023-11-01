@@ -17,6 +17,7 @@ class BaseLangevinSampler:
     clamp_max_grad: Optional[float] = None
     clip_data_norm : Optional[float] = None
     clip_grad_norm: Optional[float] = None
+    hyperspherical: Optional[bool] = False
 
 
 

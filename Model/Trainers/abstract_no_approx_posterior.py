@@ -67,7 +67,6 @@ class NoApproxPosterior(AbstractTrainer):
         entropy_posterior = self.encoder.latent_distribution.calculate_entropy(params_reverse, dic_params=dic_params_reverse, empirical_entropy=self.cfg.trainer.empirical_entropy).mean(dim=0)
 
 
-
         self.opt_reverse_encoder.step()
         dic_feedback.update({
             "kl_loss": kl_posterior_reverse.mean().item(),

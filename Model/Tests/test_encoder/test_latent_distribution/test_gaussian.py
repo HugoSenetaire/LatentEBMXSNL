@@ -31,9 +31,9 @@ def test_gaussian():
     #Verify the obtention of parameters
     assert dic_params_feedback["||mu_encoder||"].shape == (2,), "Shape should be (2,)"
     assert dic_params_feedback["||mu_encoder||"][0].item() == math.sqrt(1), "The norm should be 1"
-    assert dic_params_feedback["log_var_encoder_mean"][0].item() == 0., "The variance should be 1"
+    assert dic_params_feedback["var_encoder_mean"][0].item() == 1.0, "The variance should be 1"
     assert np.absolute(dic_params_feedback["||mu_encoder||"][1].item()- math.sqrt(2))<1e-1, "The norm should be sqrt(2)"
-    assert dic_params_feedback["log_var_encoder_mean"][1].item() == 0.0, "The variance should be 1"
+    assert dic_params_feedback["var_encoder_mean"][1].item() == 1.0, "The variance should be 1"
 
 
     assert torch.allclose(dic_params["mu"], torch.tensor([[0.0, 1.0], [-1.0, -1.0]])), "Mu is not correct"

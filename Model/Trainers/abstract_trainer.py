@@ -28,11 +28,11 @@ class AbstractTrainer:
 
         self.cfg = cfg
 
-        self.generator = AbstractGenerator(cfg)
+        self.generator = AbstractGenerator(cfg).to(cfg.trainer.device)
         self.energy = get_energy_network(cfg.energy.network_name, cfg.trainer.nz, cfg.energy.ndf)
         self.prior = get_prior(cfg.trainer.nz, cfg.prior).to(cfg.trainer.device)
         self.extra_prior = get_extra_prior(cfg.trainer.nz, cfg.extra_prior).to(cfg.trainer.device)
-        self.encoder = AbstractEncoder(cfg, cfg.trainer.nz, cfg.dataset.nc)
+        self.encoder = AbstractEncoder(cfg, cfg.trainer.nz, cfg.dataset.nc).to(cfg.trainer.device)
 
         self.sampler_prior = get_prior_sampler(cfg.sampler_prior)
         self.sampler_posterior = get_posterior_sampler(cfg.sampler_posterior)
@@ -458,10 +458,10 @@ class AbstractTrainer:
                 self.plot_samples_2d(liste_samples, -3, 3, liste_samples_name, step, params=params, params_reverse=params_reverse)
                 self.plot_samples_2d(liste_samples, -10, 10, liste_samples_name, step, params=params, params_reverse=params_reverse)
                 self.plot_samples_2d(liste_samples, -30, 30, liste_samples_name, step, params=params, params_reverse=params_reverse)
-
+            elif "hyperspherical" in self.cfg.prior.prior_name:
+                self.plot_samples_2d(liste_samples, -2, 2, liste_samples_name, step, params=params, params_reverse=params_reverse)
             elif self.cfg.prior.prior_name =='uniform' :
                 self.plot_samples_2d(liste_samples, self.cfg.prior.min+1e-2, self.cfg.prior.max-1e-2, liste_samples_name, step, params=params, params_reverse=params_reverse)
-                
             else :
                 raise ValueError("Prior name not recognized")
 
@@ -508,7 +508,7 @@ class AbstractTrainer:
         energy_list = [energy_base_dist, energy_prior, energy_extra_prior, just_energy]
         energy_list_names = ["Base Distribution", "EBM Prior", "Extra Prior", "Just EBM"]
         # if params is not None and self.cfg.encoder.latent_distribution_name == 'gaussian' :
-        if params is not None and self.cfg.encoder.latent_distribution_name != 'uniform':
+        if params is not None and self.cfg.encoder.latent_distribution_name != 'uniform' and "mises" not in self.cfg.encoder.latent_distribution_name:
         # == "gaussian": # Does not work with uniform distribution
             dic_params, _ = self.encoder.latent_distribution.get_params(params)
             dist_posterior = self.encoder.latent_distribution.get_distribution(params, dic_params=dic_params)
@@ -517,7 +517,7 @@ class AbstractTrainer:
             energy_list.append(aggregate_energy)
             energy_list_names.append("Aggregate Posterior")
             
-        if params_reverse is not None and self.cfg.encoder.latent_distribution_name != 'uniform':
+        if params_reverse is not None and self.cfg.encoder.latent_distribution_name != 'uniform' and "mises" not in self.cfg.encoder.latent_distribution_name:
         # if params_reverse is not None and self.cfg.encoder.latent_distribution_name == 'gaussian':
             dic_params, _ = self.reverse_encoder.latent_distribution.get_params(params)
             dist_posterior = self.reverse_encoder.latent_distribution.get_distribution(params, dic_params=dic_params)
