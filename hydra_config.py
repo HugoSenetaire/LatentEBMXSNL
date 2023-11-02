@@ -27,7 +27,7 @@ class MachineConfig:
 
 @dataclass 
 class KarolinaConfig(MachineConfig):
-    root: str = MISSING
+    root: str = "/scratch/project/dd-23-138/"
 
 @dataclass
 class TitansConfig(MachineConfig):
@@ -82,7 +82,6 @@ class Config:
 def store_main():
     cs = ConfigStore.instance()
     cs.store(name="base_config", node=Config)
-
     cs.store(name="machine", node=MachineConfig, group="machine")
     cs.store(name="karolina", node=KarolinaConfig, group="machine")
     cs.store(name="titans", node=TitansConfig, group="machine")
