@@ -33,38 +33,25 @@ class NoApproxPosterior(AbstractTrainer):
 
         # KL 
         kl_posterior_reverse = -self.reverse_encoder.latent_distribution.log_prob(params_reverse, z_g_k.detach(), dic_params=dic_params_reverse).mean(dim=0)
-        # mu, log_var = params_reverse.chunk(2, dim=1)
-        # mu, log_var = dic_params_reverse["mu"], dic_params_reverse["log_var"]
-        # kl_posterior_reverse = (mu-torch.zeros_like(mu)).pow(2).sum(dim=1).mean(dim=0) + (log_var.exp() -1).pow(2).sum(dim=1).mean(dim=0)
-        
+        loss_kl_reverse = kl_posterior_reverse.mean()
+        loss_kl_reverse.backward()
 
         # Entropy posterior
-        entropy_posterior_reverse = self.encoder.latent_distribution.calculate_entropy(params_reverse, dic_params=dic_params_reverse, empirical_entropy=self.cfg.trainer.empirical_entropy).mean(dim=0)
-
-        loss_kl_reverse = kl_posterior_reverse.mean()
-        # dic_regul_reverse_encoder = regularization_encoder(dic_params_reverse, self.reverse_encoder, self.cfg, self.logger, step=step)
-        # for key, item in dic_regul_reverse_encoder.items():
-            # loss_kl_reverse += item
-            # dic_feedback[key] = item
-
-        loss_kl_reverse.backward()
-        # self.grad_clipping_all_net(["reverse_encoder",], step=step)
-
+        entropy_posterior_reverse = self.reverse_encoder.latent_distribution.calculate_entropy(params_reverse, dic_params=dic_params_reverse, empirical_entropy=self.cfg.trainer.empirical_entropy).mean(dim=0)
 
 
         # Reparam trick
-        z_q = self.encoder.latent_distribution.r_sample(params_reverse, dic_params=dic_params_reverse).reshape(x.shape[0], self.cfg.trainer.nz)
+        z_q = self.reverse_encoder.latent_distribution.r_sample(params_reverse, dic_params=dic_params_reverse).reshape(x.shape[0], self.cfg.trainer.nz)
         x_hat = self.generator(z_q)
-
 
         # Reconstruction loss :
         loss_g = self.generator.get_loss(x_hat, x).reshape(x.shape[0]).mean(dim=0)
 
         # KL without ebm
-        KL_loss = self.encoder.latent_distribution.calculate_kl(self.prior, params_reverse, z_q, dic_params=dic_params_reverse, empirical_kl=self.cfg.trainer.empirical_kl).mean(dim=0)
+        KL_loss = self.reverse_encoder.latent_distribution.calculate_kl(self.prior, params_reverse, z_q, dic_params=dic_params_reverse, empirical_kl=self.cfg.trainer.empirical_kl).mean(dim=0)
 
         # Entropy posterior
-        entropy_posterior = self.encoder.latent_distribution.calculate_entropy(params_reverse, dic_params=dic_params_reverse, empirical_entropy=self.cfg.trainer.empirical_entropy).mean(dim=0)
+        entropy_posterior = self.reverse_encoder.latent_distribution.calculate_entropy(params_reverse, dic_params=dic_params_reverse, empirical_entropy=self.cfg.trainer.empirical_entropy).mean(dim=0)
 
 
         self.opt_reverse_encoder.step()
@@ -132,7 +119,6 @@ class NoApproxPosterior(AbstractTrainer):
         iterator = iter(val_data)
         total_dic_feedback = {}
         ranger = tqdm.tqdm(range(len(val_data)), desc="snis_eval_reverse", position=1, leave=False)
-
         for i in ranger:
             dic_feedback = {}
             batch = next(iterator)

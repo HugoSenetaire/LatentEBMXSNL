@@ -46,13 +46,14 @@ class AbstractTrainer:
             cfg.trainer.log_dir = os.path.join(cfg.machine.root, "logs",)
             print("Setting log dir to " + cfg.trainer.log_dir)
         self.logger = wandb.init(
-            project="LatentEBM_{}".format(cfg.dataset.dataset_name),
+            project="LatentEBM_{}_{}".format(cfg.dataset.dataset_name,str(cfg.trainer.nz)),
             config=OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True),
             dir=cfg.trainer.log_dir,
-            name= str(cfg.trainer.nz)+ "_" + cfg.prior.prior_name + "_" + cfg.trainer.trainer_name + time.strftime("%Y%m%d-%H%M%S"),
+            name= cfg.trainer.trainer_name + "_" + cfg.prior.prior_name + "_" + cfg.encoder.latent_distribution_name + time.strftime("%Y%m%d-%H%M%S"),
         )
         self.n_iter = cfg.trainer.n_iter
         self.n_iter_pretrain = cfg.trainer.n_iter_pretrain
+        self.n_iter_pretrain_encoder = cfg.trainer.n_iter_pretrain_encoder
         self.compile()
 
     def compile(self):
@@ -77,7 +78,7 @@ class AbstractTrainer:
     def train(self, train_dataloader, val_dataloader=None, test_dataloader=None):
         self.global_step = 0
         iterator = iter(train_dataloader)
-        for self.global_step in tqdm.tqdm(range(self.n_iter_pretrain + self.n_iter)):
+        for self.global_step in tqdm.tqdm(range(self.n_iter_pretrain_encoder + self.n_iter_pretrain + self.n_iter)):
             try :
                 x = next(iterator)[0].to(self.cfg.trainer.device)
             except StopIteration:
@@ -90,8 +91,9 @@ class AbstractTrainer:
             x = x.reshape(x.shape[0], self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size)
 
 
-
-            if self.global_step < self.n_iter_pretrain:
+            if self.global_step < self.n_iter_pretrain_encoder:
+                dic_loss = self.train_step_only_encoder(x, self.global_step)
+            elif self.global_step < self.n_iter_pretrain + self.n_iter_pretrain_encoder:
                 dic_loss = self.train_step_standard_elbo(x, self.global_step)
             else:
                 dic_loss = self.train_step(x, self.global_step)
@@ -113,11 +115,44 @@ class AbstractTrainer:
 
                 
             # Test
-            if (self.global_step)%self.cfg.trainer.test_every == 0 and test_dataloader is not None and self.global_step>0:
+            if (self.global_step)%self.cfg.trainer.test_every == 0 and test_dataloader is not None and self.global_step>1:
                 self.eval(test_dataloader, self.global_step, name="test/")
 
             
 
+    def train_step_only_encoder(self, x, step):
+        self.opt_generator.zero_grad()
+        self.opt_energy.zero_grad()
+        self.opt_encoder.zero_grad()
+        dic_total = {}
+        param = self.encoder(x)
+        dic_param, dic_param_feedback = self.encoder.latent_distribution.get_params(param)
+        dic_total.update(dic_param_feedback)
+
+        # Reparametrization trick
+        z_q = self.encoder.latent_distribution.r_sample(param, dic_params=dic_param).reshape(x.shape[0], self.cfg.trainer.nz)
+
+        # KL without ebm
+        KL_loss = self.encoder.latent_distribution.calculate_kl(self.prior, param, z_q, dic_params=dic_param).mean(dim=0)
+
+        # Entropy posterior
+        entropy_posterior = self.encoder.latent_distribution.calculate_entropy(param, dic_params=dic_param).mean(dim=0)
+
+
+        # ELBO
+        loss_total = KL_loss
+        loss_total.backward()
+
+        dic_total.update({
+            "KL_loss": KL_loss.item(),
+            "entropy_posterior": entropy_posterior.item(),
+        })
+        dic_total.update(dic_param)
+        self.opt_energy.step()
+        self.opt_generator.step()
+        self.opt_encoder.step()
+
+        return dic_total
 
     def train_step_standard_elbo(self, x, step):
         self.opt_generator.zero_grad()
@@ -238,6 +273,8 @@ class AbstractTrainer:
 
             # Reparam trick
             z_q = self.encoder.latent_distribution.r_sample(param, n_samples = self.cfg.trainer.multiple_sample_val, dic_params=dic_param).reshape(expanded_batch_size, self.cfg.trainer.nz)
+            if torch.any(torch.isnan(z_q)):
+                print("z_q nan")
             x_hat = self.generator(z_q)
 
 
@@ -407,7 +444,7 @@ class AbstractTrainer:
             draw(x_prior.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleEBMPrior")
             draw(mu_prior.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="MeanEBMPrior")
     
-            x_posterior, mu_posterior =self.generator.sample(z_g_k, return_mean=True)
+            x_posterior, mu_posterior = self.generator.sample(z_g_k, return_mean=True)
             draw(x_posterior.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleEBMPosterior")
             draw(mu_posterior.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="MeanEBMPosterior")
 
@@ -415,7 +452,7 @@ class AbstractTrainer:
             param = self.encoder(x[:batch_save])
             sample_mean, sample_std = self.encoder.latent_distribution.get_plots(param,)
 
-            x_reconstruction, mu_reconstruction =self.generator.sample(sample_mean, return_mean=True)
+            x_reconstruction, mu_reconstruction = self.generator.sample(sample_mean, return_mean=True)
             draw(x_reconstruction.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleReconstruction")
             draw(mu_reconstruction.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="MeanReconstruction")
         
@@ -423,7 +460,6 @@ class AbstractTrainer:
             x_prior, mu_prior = self.generator.sample(extra_prior_samples, return_mean=True)
             draw(x_prior.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleExtraPrior")
             draw(mu_prior.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="MeanExtraPrior")
-
 
     def plot_latent(self, dataloader, step):
         if self.cfg.trainer.nz != 2:
@@ -437,20 +473,24 @@ class AbstractTrainer:
             len_samples = min(1000, data.shape[0])
             params = self.encoder(data[:len_samples])
             mu_q, log_var_q = self.encoder.latent_distribution.get_plots(params)
+            samples_approx_post = self.encoder.latent_distribution.r_sample(params, n_samples=10).reshape(10*len_samples, self.cfg.trainer.nz)
 
             z_e_0, z_g_0 = self.prior.sample(len_samples), self.prior.sample(len_samples)
             z_e_k, z_grad_norm = self.sampler_prior(z_e_0, self.energy, self.prior,)
             z_g_k, z_g_grad_norm, z_e_grad_norm = self.sampler_posterior(z_g_0, data[:len_samples], self.generator, self.energy, self.prior,)
          
-            liste_samples = [z_e_0, z_e_k, mu_q, z_g_k]
-            liste_samples_name = ["Latent Base Distribution", "Latent Prior", "Latent Approximate Posterior", "Latent Posterior"]
+            liste_samples = [z_e_0, z_e_k, mu_q, samples_approx_post, z_g_k]
+            liste_samples_name = ["Latent Base Distribution", "Latent Prior", "Latent Approximate Posterior Mu ", "Latent Approximate Posterior Sample", "Latent Posterior"]
 
 
             if hasattr(self, "reverse_encoder"):
                 params_reverse = self.reverse_encoder(data[:len_samples])
                 mu_q_reverse, log_var_q_reverse = self.reverse_encoder.latent_distribution.get_plots(params_reverse)
                 liste_samples.append(mu_q_reverse)
-                liste_samples_name.append("Latent Approximate Posterior Reverse")
+                liste_samples_name.append("Latent Approximate Posterior Reverse Mu")
+                samples_approx_reverse_post = self.reverse_encoder.latent_distribution.r_sample(params_reverse, n_samples=10).reshape(10*len_samples, self.cfg.trainer.nz)
+                liste_samples.append(samples_approx_reverse_post)
+                liste_samples_name.append("Latent Approximate Posterior Reverse Sample")
             else :
                 params_reverse = None
 

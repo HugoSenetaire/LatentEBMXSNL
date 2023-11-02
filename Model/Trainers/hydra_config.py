@@ -22,6 +22,7 @@ class BaseTrainerConfig:
     # Iteration for training
     n_iter: int = 100000
     n_iter_pretrain: int = 0
+    n_iter_pretrain_encoder: int = 0
 
     #Save utils
     log_every: int = 100
@@ -34,6 +35,7 @@ class BaseTrainerConfig:
     multiple_sample_val_SNIS: int = 100
     multiple_sample_val: int = 100
     nb_sample_partition_estimate_val: int = 100
+    multiple_sample_train: int = 10
     grid_coarseness : int = 100
 
     # Calculate KL and Entropy with MC :

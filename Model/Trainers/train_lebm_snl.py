@@ -20,37 +20,42 @@ class SNELBO(AbstractTrainer):
         dic_feedback = {}
 
 
-        z_e_0, z_g_0 = self.prior.sample(x.shape[0]), self.prior.sample(x.shape[0])
+        z_e_0 = self.prior.sample(x.shape[0])
         param = self.encoder(x)
         dic_param, dic_param_feedback = self.encoder.latent_distribution.get_params(param)
         dic_feedback.update(dic_param_feedback)
 
         # Reparam trick
-        z_q = self.encoder.latent_distribution.r_sample(param, dic_params=dic_param).reshape(x.shape[0], self.cfg.trainer.nz)
+        z_q = self.encoder.latent_distribution.r_sample(param,
+                                                        n_samples=self.cfg.trainer.multiple_sample_train,
+                                                        dic_params=dic_param
+                                                        ).reshape(x.shape[0]*self.cfg.trainer.multiple_sample_train, self.cfg.trainer.nz)
+        
+        x_expanded = x.unsqueeze(0).expand(self.cfg.trainer.multiple_sample_train, *x.shape).reshape(x.shape[0]*self.cfg.trainer.multiple_sample_train, *x.shape[1:])
         x_hat = self.generator(z_q)
 
         # Reconstruction loss :
-        loss_g = self.generator.get_loss(x_hat, x).reshape(x.shape[0]).mean(dim=0)
+        loss_g = self.generator.get_loss(x_hat, x_expanded).reshape(self.cfg.trainer.multiple_sample_train,x.shape[0],).mean(dim=0).mean(dim=0)
 
         # KL without ebm
-        KL_loss = self.encoder.latent_distribution.calculate_kl(self.prior, param, z_q, dic_params=dic_param, empirical_kl=self.cfg.trainer.empirical_kl).mean(dim=0)
+        KL_loss = self.encoder.latent_distribution.calculate_kl(self.prior, param, z_q, dic_params=dic_param, empirical_kl=self.cfg.trainer.empirical_kl).reshape(x.shape[0]).mean(dim=0)
 
         # Entropy posterior
-        entropy_posterior = self.encoder.latent_distribution.calculate_entropy(param, dic_params=dic_param, empirical_entropy=self.cfg.trainer.empirical_entropy).mean(dim=0)
+        entropy_posterior = self.encoder.latent_distribution.calculate_entropy(param, dic_params=dic_param, empirical_entropy=self.cfg.trainer.empirical_entropy).reshape(x.shape[0]).mean(dim=0)
 
 
         # Energy :
         if self.cfg.trainer.detach_approximate_posterior:
             z_q = z_q.detach()
-        energy_approximate = self.energy(z_q).reshape(x.shape[0])
-        energy_base_dist = self.energy(z_e_0).reshape(x.shape[0])
+        energy_approximate = self.energy(z_q).reshape(self.cfg.trainer.multiple_sample_train,x.shape[0],).mean(dim=0)
+        energy_base_dist = self.energy(z_e_0).reshape(x.shape[0],)
 
-        base_dist_z_approximate = self.prior.log_prob(z_q).reshape(x.shape[0])
-        base_dist_z_base_dist = self.prior.log_prob(z_e_0).reshape(x.shape[0])
+        base_dist_z_approximate = self.prior.log_prob(z_q).reshape(self.cfg.trainer.multiple_sample_train,x.shape[0],).mean(dim=0)
+        base_dist_z_base_dist = self.prior.log_prob(z_e_0).reshape(x.shape[0],)
 
         log_partition_estimate = torch.logsumexp(-energy_base_dist,0) - math.log(energy_base_dist.shape[0])
         loss_ebm = (energy_approximate).mean() + log_partition_estimate.exp() -1
-
+        
         loss_total = loss_g + KL_loss + loss_ebm
 
 

@@ -28,7 +28,7 @@ class SNELBO_Aggregate(AbstractTrainer):
         param = self.encoder(x)
         dic_param, dic_param_feedback = self.encoder.latent_distribution.get_params(param)
         dic_feedback.update(dic_param_feedback)
-        aggregate = AggregatePosterior(self.encoder.latent_distribution.get_distribution(params=param, dic_params=dic_param),  x.shape[0], device = self.device)
+        aggregate = AggregatePosterior(self.encoder.latent_distribution.get_distribution(params=param, dic_params=dic_param),  x.shape[0], device = self.cfg.trainer.device)
 
 
         # Reparam trick

@@ -73,7 +73,7 @@ class ContrastiveDivergenceLogTrick(NoApproxPosterior):
         self.opt_energy.step()
 
         dic_feedback.update(self.train_approx_posterior(x, step))
-        dic_feedback.update({self.train_approx_posterior_reverse(x, z_g_k, step)})
+        dic_feedback.update(self.train_approx_posterior_reverse(x, z_g_k, step))
 
 
 
