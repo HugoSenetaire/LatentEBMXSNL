@@ -145,18 +145,21 @@ def load_celeba(cfg, **kwargs):
                                                     tfm.CenterCrop(cfg.dataset.img_size),
                                                     tfm.ToTensor(),
                                                     tfm.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]))
+    print("Size dataset train", len(ds_train))
     ds_val = tv.datasets.CelebA('{}/celeba'.format(cfg.dataset.root_dataset), split='valid', download=True,
                                                 transform=tfm.Compose([
                                                     tfm.Resize(cfg.dataset.img_size),
                                                     tfm.CenterCrop(cfg.dataset.img_size),
                                                     tfm.ToTensor(),
                                                     tfm.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]))
+    print("Size dataset val", len(ds_val))
     ds_test = tv.datasets.CelebA('{}/celeba'.format(cfg.dataset.root_dataset), split='test', download=True,
                                                 transform=tfm.Compose([
                                                     tfm.Resize(cfg.dataset.img_size),
                                                     tfm.CenterCrop(cfg.dataset.img_size),
                                                     tfm.ToTensor(),
                                                     tfm.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]))
+    print("Size dataset test", len(ds_test))
     
 
     dataloader_train = torch.utils.data.DataLoader(ds_train, batch_size=cfg.dataset.batch_size, shuffle=True, num_workers=0)
