@@ -1,6 +1,6 @@
 defaults:
   - base_config
-  - dataset : mnist
+  - dataset : omniglot
   - encoder : conv_mnist
   - energy : energy_mnist
   - generator: conv_mnist
@@ -20,6 +20,4 @@ defaults:
   - scheduler_prior : exponential_lr
   - machine : titans
   - trainer: snelbo_aggregate_trainer
-
-
 
