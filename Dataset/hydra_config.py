@@ -12,6 +12,7 @@ class BaseDatasetConfig:
 
     # Used by the trainer to estimate the normalization constant
     dataset_name: str = MISSING
+    num_workers: int = 4
 
     # Iteration for training
     batch_size: int = 256
