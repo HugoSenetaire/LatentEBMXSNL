@@ -16,9 +16,15 @@ save_images_every: 1000
 val_every: 1000
 test_every: 10000
 
-multiple_sample_val_SNIS: 100
-multiple_sample_val: 100
-nb_sample_partition_estimate_val: 100
+multiple_sample_val_SNIS:  10
+multiple_sample_val: 10
+nb_sample_partition_estimate_val: 10
+
+multiple_sample_test_SNIS: 1000
+multiple_sample_test: 1000
+nb_sample_partition_estimate_test: 1000
+
+multiple_sample_train: 10
 
 device : "cuda"
 

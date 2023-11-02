@@ -3,6 +3,7 @@ defaults:
 dataset_name: SVHN
 batch_size: 256
 batch_size_val: 256
+batch_size_test: 32
 nc : 3
 img_size : 32
 transform_back_name: "m1_1"

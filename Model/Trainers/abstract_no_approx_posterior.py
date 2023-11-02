@@ -119,14 +119,15 @@ class NoApproxPosterior(AbstractTrainer):
         iterator = iter(val_data)
         total_dic_feedback = {}
         ranger = tqdm.tqdm(range(len(val_data)), desc="snis_eval_reverse", position=1, leave=False)
+        multiple_sample_val_SNIS = getattr(self.cfg.trainer, "multiple_sample_{}_SNIS".format(name[:-1]),)
         for i in ranger:
             dic_feedback = {}
             batch = next(iterator)
             x = batch[0].to(self.cfg.trainer.device)
             x = x.reshape(x.shape[0], self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size)
 
-            x_expanded = x.unsqueeze(0).expand(self.cfg.trainer.multiple_sample_val, x.shape[0], self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size).flatten(0,1)
-            expanded_batch_size = x.shape[0]*self.cfg.trainer.multiple_sample_val
+            x_expanded = x.unsqueeze(0).expand(multiple_sample_val_SNIS, x.shape[0], self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size).flatten(0,1)
+            expanded_batch_size = x.shape[0]*multiple_sample_val_SNIS
 
             param = self.reverse_encoder(x)
             dic_param, dic_param_feedback = self.reverse_encoder.latent_distribution.get_params(param)
@@ -134,20 +135,20 @@ class NoApproxPosterior(AbstractTrainer):
             dic_feedback.update(dic_param_feedback)
 
             # Reparam trick
-            z_q = self.reverse_encoder.latent_distribution.r_sample(param, n_samples = self.cfg.trainer.multiple_sample_val, dic_params=dic_param).reshape(expanded_batch_size, self.cfg.trainer.nz)
+            z_q = self.reverse_encoder.latent_distribution.r_sample(param, n_samples = multiple_sample_val_SNIS, dic_params=dic_param).reshape(expanded_batch_size, self.cfg.trainer.nz)
             x_hat = self.generator(z_q)
 
-            multi_gaussian = self.extra_prior.log_prob(z_q).reshape(self.cfg.trainer.multiple_sample_val_SNIS,x.shape[0])
+            multi_gaussian = self.extra_prior.log_prob(z_q).reshape(multiple_sample_val_SNIS,x.shape[0])
 
             # Energy :
-            energy_approximate = self.energy(z_q).reshape(self.cfg.trainer.multiple_sample_val,x.shape[0])
-            base_dist_z_approximate = self.prior.log_prob(z_q).reshape(self.cfg.trainer.multiple_sample_val,x.shape[0])
+            energy_approximate = self.energy(z_q).reshape(multiple_sample_val_SNIS,x.shape[0])
+            base_dist_z_approximate = self.prior.log_prob(z_q).reshape(multiple_sample_val_SNIS,x.shape[0])
 
             # Different Weights :
-            posterior_distribution = self.reverse_encoder.latent_distribution.log_prob(param, z_q, dic_params=dic_param).reshape(self.cfg.trainer.multiple_sample_val_SNIS,x.shape[0])
-            log_weights_energy = (energy_approximate + base_dist_z_approximate - posterior_distribution).reshape(self.cfg.trainer.multiple_sample_val_SNIS,x.shape[0])
-            log_weights_no_energy = (base_dist_z_approximate - posterior_distribution).reshape(self.cfg.trainer.multiple_sample_val_SNIS,x.shape[0])
-            log_weights_gaussian = (multi_gaussian - posterior_distribution).reshape(self.cfg.trainer.multiple_sample_val_SNIS,x.shape[0])
+            posterior_distribution = self.reverse_encoder.latent_distribution.log_prob(param, z_q, dic_params=dic_param).reshape(multiple_sample_val_SNIS,x.shape[0])
+            log_weights_energy = (energy_approximate + base_dist_z_approximate - posterior_distribution).reshape(multiple_sample_val_SNIS,x.shape[0])
+            log_weights_no_energy = (base_dist_z_approximate - posterior_distribution).reshape(multiple_sample_val_SNIS,x.shape[0])
+            log_weights_gaussian = (multi_gaussian - posterior_distribution).reshape(multiple_sample_val_SNIS,x.shape[0])
             log_weights_energy = torch.log_softmax(log_weights_energy, dim=0)
             log_weights_no_energy = torch.log_softmax(log_weights_no_energy, dim=0)
             log_weights_gaussian = torch.log_softmax(log_weights_gaussian, dim=0)
@@ -155,7 +156,7 @@ class NoApproxPosterior(AbstractTrainer):
 
 
             # Reconstruction loss :
-            loss_g = self.generator.get_loss(x_hat, x_expanded).reshape(self.cfg.trainer.multiple_sample_val_SNIS,x.shape[0])
+            loss_g = self.generator.get_loss(x_hat, x_expanded).reshape(multiple_sample_val_SNIS,x.shape[0])
             SNIS_energy = (log_weights_energy+loss_g).logsumexp(0).reshape(x.shape[0])
             SNIS_no_energy = (log_weights_no_energy+loss_g).logsumexp(0).reshape(x.shape[0])
             SNIS_extra_prior = (log_weights_gaussian+loss_g).logsumexp(0).reshape(x.shape[0])
@@ -180,30 +181,31 @@ class NoApproxPosterior(AbstractTrainer):
         iterator = iter(val_data)
         total_dic_feedback = {}
         ranger = tqdm.tqdm(range(len(val_data)), desc="elbo_eval_reverse", position=1, leave=False)
+        multiple_sample_val_elbo = getattr(self.cfg.trainer, "multiple_sample_{}".format(name[:-1]),)
         for i in ranger:
             dic_feedback = {}
             batch = next(iterator)
             x = batch[0].to(self.cfg.trainer.device)
             x = x.reshape(x.shape[0], self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size)
 
-            x_expanded = x.unsqueeze(0).expand(self.cfg.trainer.multiple_sample_val, x.shape[0], self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size).flatten(0,1)
-            expanded_batch_size = x.shape[0]*self.cfg.trainer.multiple_sample_val
+            x_expanded = x.unsqueeze(0).expand(multiple_sample_val_elbo, x.shape[0], self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size).flatten(0,1)
+            expanded_batch_size = x.shape[0]*multiple_sample_val_elbo
 
             param = self.reverse_encoder(x)
             dic_param, dic_param_feedback = self.reverse_encoder.latent_distribution.get_params(param)
             dic_feedback.update(dic_param_feedback)
 
             # Reparam trick
-            z_q = self.reverse_encoder.latent_distribution.r_sample(param, n_samples = self.cfg.trainer.multiple_sample_val, dic_params=dic_param).reshape(expanded_batch_size, self.cfg.trainer.nz)
+            z_q = self.reverse_encoder.latent_distribution.r_sample(param, n_samples = multiple_sample_val_elbo, dic_params=dic_param).reshape(expanded_batch_size, self.cfg.trainer.nz)
             x_hat = self.generator(z_q)
 
             # Reconstruction loss :
-            loss_g = self.generator.get_loss(x_hat, x_expanded).reshape(self.cfg.trainer.multiple_sample_val,x.shape[0]).mean(dim=0)
-            mse_loss = self.mse_test(x_hat, x_expanded).reshape(self.cfg.trainer.multiple_sample_val, x.shape[0], -1).sum(dim=2).mean(dim=0)
+            loss_g = self.generator.get_loss(x_hat, x_expanded).reshape(multiple_sample_val_elbo,x.shape[0]).mean(dim=0)
+            mse_loss = self.mse_test(x_hat, x_expanded).reshape(multiple_sample_val_elbo, x.shape[0], -1).sum(dim=2).mean(dim=0)
 
 
             # KL without ebm
-            z_q_no_multiple = z_q.reshape(self.cfg.trainer.multiple_sample_val, x.shape[0], self.cfg.trainer.nz)[0]
+            z_q_no_multiple = z_q.reshape(multiple_sample_val_elbo, x.shape[0], self.cfg.trainer.nz)[0]
             KL_loss = self.reverse_encoder.latent_distribution.calculate_kl(self.prior, param, z_q_no_multiple, dic_params=dic_param)
 
             # Entropy posterior
@@ -212,15 +214,15 @@ class NoApproxPosterior(AbstractTrainer):
 
             # Gaussian extra_prior
             log_prob_extra_prior = self.extra_prior.log_prob(z_q)
-            log_prob_extra_prior = log_prob_extra_prior.reshape(self.cfg.trainer.multiple_sample_val,x.shape[0])
+            log_prob_extra_prior = log_prob_extra_prior.reshape(multiple_sample_val_elbo,x.shape[0])
             
             # Energy :
-            energy_approximate = self.energy(z_q).reshape(self.cfg.trainer.multiple_sample_val,x.shape[0])
-            base_dist_z_approximate = self.prior.log_prob(z_q).reshape(self.cfg.trainer.multiple_sample_val,x.shape[0])
+            energy_approximate = self.energy(z_q).reshape(multiple_sample_val_elbo,x.shape[0])
+            base_dist_z_approximate = self.prior.log_prob(z_q).reshape(multiple_sample_val_elbo,x.shape[0])
 
             
             # Different loss :
-            loss_ebm = (energy_approximate + log_partition_estimate.exp() - 1).reshape(self.cfg.trainer.multiple_sample_val,x.shape[0]).mean(dim=0)
+            loss_ebm = (energy_approximate + log_partition_estimate.exp() - 1).reshape(multiple_sample_val_elbo,x.shape[0]).mean(dim=0)
             loss_total = loss_g + KL_loss + loss_ebm
             elbo_extra_prior = -loss_g + entropy_posterior + (log_prob_extra_prior).mean(dim=0)
 

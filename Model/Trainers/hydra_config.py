@@ -32,10 +32,19 @@ class BaseTrainerConfig:
     test_every: int = 10000
 
     # Validation parameters :
-    multiple_sample_val_SNIS: int = 100
-    multiple_sample_val: int = 100
-    nb_sample_partition_estimate_val: int = 100
+    multiple_sample_val_SNIS: int = 10
+    multiple_sample_val: int = 10
+    nb_sample_partition_estimate_val: int = 10
+
+    # Test parameters :
+    multiple_sample_test_SNIS: int = 1000
+    multiple_sample_test: int = 1000
+    nb_sample_partition_estimate_test: int = 1000
+
+    # Train parameters :
     multiple_sample_train: int = 10
+
+    # Plot parameters :
     grid_coarseness : int = 100
 
     # Calculate KL and Entropy with MC :

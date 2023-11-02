@@ -2,7 +2,8 @@ defaults:
   - base_dataset_name    
 dataset_name: "CELEBA"
 batch_size: 400
-batch_size_val: 32
+batch_size_val: 128
+batch_size_test: 32
 nc : 3
 img_size : 128
 transform_back_name: "m1_1"
