@@ -34,11 +34,13 @@ class BaseTrainerConfig:
     # Validation parameters :
     multiple_sample_val_SNIS: int = 10
     multiple_sample_val: int = 10
+    nb_sample_fid_val: int= 10000
     nb_sample_partition_estimate_val: int = 10
 
     # Test parameters :
     multiple_sample_test_SNIS: int = 1000
     multiple_sample_test: int = 1000
+    nb_sample_fid_test: int= 30000
     nb_sample_partition_estimate_test: int = 1000
 
     # Train parameters :

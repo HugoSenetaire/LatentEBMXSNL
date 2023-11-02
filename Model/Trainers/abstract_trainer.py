@@ -18,7 +18,8 @@ from ..Prior import get_prior, get_extra_prior
 from ..Sampler import get_posterior_sampler, get_prior_sampler
 from ..Utils.log_utils import log, draw, get_extremum, plot_contour
 from ..Utils.aggregate_posterior import AggregatePosterior
-from ..Utils.utils_fid import calculate_frechet
+from ..Utils.utils_fid.utils import calculate_activation, calculate_frechet_distance
+from ..Utils.utils_fid.inception_v3 import InceptionV3
 
 class AbstractTrainer:
     def __init__(
@@ -129,12 +130,14 @@ class AbstractTrainer:
             # Eval
             if (self.global_step) % self.cfg.trainer.val_every == 0 and val_dataloader is not None:
                 self.eval(val_dataloader, self.global_step)
-                self.fid_eval(val_data=val_dataloader, step=self.global_step, name="val/")
 
                 
             # Test
-            if (self.global_step)%self.cfg.trainer.test_every == 0 and test_dataloader is not None :
+            if (self.global_step)%self.cfg.trainer.test_every == 0 and test_dataloader is not None and self.global_step>1 :
                 self.eval(test_dataloader, self.global_step, name="test/")
+                self.fid_eval(val_data=test_dataloader, step=self.global_step, name="test/")
+
+
 
             
 
@@ -422,17 +425,59 @@ class AbstractTrainer:
         
 
     def fid_eval(self, val_data, step, name="val/"):
-        batch_save = min(256, val_data.dataset.__len__())
-        z_e_0 = self.prior.sample(batch_save)
-        z_e_k, _ = self.sampler_prior(z_e_0, self.energy, self.prior,)
-        x_sample, x_mean = self.generator.sample(z_e_k, return_mean=True)
-        x_sample = x_sample.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size).to('cpu')
-        x_mean = x_mean.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size).to('cpu')
-        val_data = torch.stack([val_data.dataset.__getitem__(i)[0] for i in np.random.randint(0, val_data.dataset.__len__(), batch_save)]).to('cpu')
+        batch_save = min(self.cfg.dataset.batch_size_val, val_data.dataset.__len__())
+        nb_sample = getattr(self.cfg.trainer, "nb_sample_fid_{}".format(name[:-1]))
+        nb_batch = int(np.ceil(nb_sample/batch_save))
 
-        fid = calculate_frechet(val_data, x_sample,)
-        fid_mean = calculate_frechet(val_data, x_mean,)
-        log(step, {"fid":fid}, logger=self.logger, name=name)
+        inception = InceptionV3([3])
+        try :
+            inception = inception.to(self.cfg.trainer.device)
+            current_device = self.cfg.trainer.device
+        except RuntimeError as e:
+            print(e)
+            print("HERE")
+            inception = inception.to("cpu")
+            current_device = "cpu"
+            
+        print("Calculating Inception Score using {} images and device {}".format(nb_sample, current_device))
+        # Statistics for generated :
+        ranger = tqdm.tqdm(range(nb_batch), desc=f"fid_{name[:-1]}_gen", position=1, leave=False)
+        activation_sample = []
+        activation_mean = []
+        for i in ranger:
+            z_e_0 = self.prior.sample(batch_save)
+            z_e_k, _ = self.sampler_prior(z_e_0, self.energy, self.prior,)
+            x_sample, x_mean = self.generator.sample(z_e_k, return_mean=True)
+            with torch.no_grad():
+                x_sample = x_sample.detach().to(current_device).reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size)
+                x_mean = x_mean.detach().to(current_device).reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size)
+                x_sample = x_sample.expand(batch_save, 3, self.cfg.dataset.img_size, self.cfg.dataset.img_size)
+                x_mean = x_mean.expand(batch_save, 3, self.cfg.dataset.img_size, self.cfg.dataset.img_size)
+                activation_sample.append(calculate_activation(x_sample, inception, device=current_device))
+                activation_mean.append(calculate_activation(x_mean, inception, device=current_device))
+        activation_sample = np.concatenate(activation_sample, axis=0)
+        activation_mean = np.concatenate(activation_mean, axis=0)
+        mu_sample = np.mean(activation_sample, axis=0)
+        sigma_sample = np.cov(activation_sample, rowvar=False)
+        mu_mean = np.mean(activation_mean, axis=0)
+        sigma_mean = np.cov(activation_mean, rowvar=False)
+
+        
+        activation_data = []
+        ranger = tqdm.tqdm(iter(val_data), desc=f"fid_{name[:-1]}_data", position=1, leave=False)
+        for batch in ranger:
+            with torch.no_grad():
+                data = batch[0].to(current_device).reshape(batch[0].shape[0], self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size)
+                data = data.expand(batch[0].shape[0], 3, self.cfg.dataset.img_size, self.cfg.dataset.img_size)
+                activation_data.append(calculate_activation(data, inception, device=current_device))
+        activation_data = np.concatenate(activation_data, axis=0)
+        mu_data = np.mean(activation_data, axis=0)
+        sigma_data = np.cov(activation_data, rowvar=False)
+
+        fid_sample = calculate_frechet_distance(mu_data, sigma_data, mu_sample, sigma_sample)
+        fid_mean = calculate_frechet_distance(mu_data, sigma_data, mu_mean, sigma_mean)
+
+        log(step, {"fid":fid_sample}, logger=self.logger, name=name)
         log(step, {"fid_mean":fid_mean}, logger=self.logger, name=name)
 
 

@@ -4,8 +4,8 @@ from scipy import linalg
 from torch.nn.functional import adaptive_avg_pool2d
 from .inception_v3 import InceptionV3
 
-def calculate_activation_statistics(
-    images, model, batch_size=128, dims=2048, device="cpu"
+def calculate_activation(
+    images, model, dims=2048, device="cpu"
 ):
     model.eval()
     act = np.empty((len(images), dims))
@@ -24,9 +24,8 @@ def calculate_activation_statistics(
 
     act = pred.cpu().data.numpy().reshape(pred.size(0), -1)
 
-    mu = np.mean(act, axis=0)
-    sigma = np.cov(act, rowvar=False)
-    return mu, sigma
+   
+    return act
 
 
 def calculate_frechet_distance(mu1, sigma1, mu2, sigma2, eps=1e-6):
@@ -92,8 +91,8 @@ def calculate_frechet(images_real, images_fake,):
     images_fake = images_fake.to(device).expand(batch_size, 3, -1, -1)
     images_real = images_real.to(device).expand(batch_size, 3, -1, -1)
 
-    mu_1, std_1 = calculate_activation_statistics(images_real, model, device=device)
-    mu_2, std_2 = calculate_activation_statistics(images_fake, model, device=device)
+    # mu_1, std_1 = calculate_activation_statistics(images_real, model, device=device)
+    # mu_2, std_2 = calculate_activation_statistics(images_fake, model, device=device)
 
     """get fretched distance"""
     fid_value = calculate_frechet_distance(mu_1, std_1, mu_2, std_2)
