@@ -27,7 +27,7 @@ class MachineConfig:
 
 @dataclass 
 class KarolinaConfig(MachineConfig):
-    root: str = "/scratch/project/dd-23-138/"
+    root: str = "/home/it4i-hhjs/../../scratch/project/dd-23-138/"
 
 @dataclass
 class TitansConfig(MachineConfig):
