@@ -16,6 +16,15 @@ class NoApproxPosterior(AbstractTrainer):
         self.reverse_encoder = AbstractEncoder(cfg, cfg.trainer.nz, cfg.dataset.nc, reverse=True)
         self.compile_reverse()
     
+    def save_model(self, name=""):
+        super().save_model(name)
+        torch.save(self.reverse_encoder.state_dict(), self.logger.path + "/reverse_encoder.pth")
+
+    def load_model(self, name=""):
+        super().load_model(name)
+        self.reverse_encoder.load_state_dict(torch.load(self.logger.path + "/reverse_encoder.pth"))
+        self.compile_reverse()
+    
     def compile_reverse(self):
         self.reverse_encoder.to(self.cfg.trainer.device)
         assert self.encoder != self.reverse_encoder
