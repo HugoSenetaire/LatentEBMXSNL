@@ -1,7 +1,7 @@
 defaults:
   - base_dataset_name    
 dataset_name: "CELEBA"
-batch_size: 400
+batch_size: 256
 batch_size_val: 128
 batch_size_test: 32
 nc : 3

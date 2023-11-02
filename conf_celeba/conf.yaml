@@ -19,7 +19,7 @@ defaults:
   - scheduler_generator : exponential_lr
   - scheduler_prior : exponential_lr
   - machine : titans
-  - trainer: prior_training_detached
+  - trainer: contrastive_divergence
 
 
 
