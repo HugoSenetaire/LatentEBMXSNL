@@ -18,11 +18,11 @@ test_every: 10000
 
 multiple_sample_val_SNIS:  10
 multiple_sample_val: 10
-nb_sample_partition_estimate_val: 10
+nb_sample_partition_estimate_val: 1000
 
 multiple_sample_test_SNIS: 100
 multiple_sample_test: 100
-nb_sample_partition_estimate_test: 100
+nb_sample_partition_estimate_test: 10000
 
 multiple_sample_train: 10
 
