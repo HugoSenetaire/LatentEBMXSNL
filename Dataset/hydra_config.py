@@ -16,6 +16,7 @@ class BaseDatasetConfig:
     # Iteration for training
     batch_size: int = 256
     batch_size_val: int = 256
+    batch_size_test: int = 256
     root_dataset: Optional[Union[str,None]] = None
 
     # Dimension fixed by the dataset

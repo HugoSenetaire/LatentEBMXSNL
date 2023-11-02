@@ -47,7 +47,7 @@ def load_omniglot(cfg, n_validation=1345, **kwargs):
     val_loader = data_utils.DataLoader(validation, batch_size=cfg.dataset.batch_size_val, shuffle=False, **kwargs)
 
     test = test
-    test_loader = data_utils.DataLoader(test, batch_size=cfg.dataset.batch_size_val, shuffle=False, **kwargs)
+    test_loader = data_utils.DataLoader(test, batch_size=cfg.dataset.batch_size_test, shuffle=False, **kwargs)
     print("Length of train_loader: ", len(train_loader), "Length of train_loader dataset: ", len(train_loader.dataset))
     print("Length of val_loader: ", len(val_loader), "Length of val_loader dataset: ", len(val_loader.dataset))
     print("Length of test_loader: ", len(test_loader), "Length of test_loader dataset: ", len(test_loader.dataset))
@@ -85,7 +85,7 @@ def load_caltech101silhouettes(cfg, **kwargs):
     val_loader = data_utils.DataLoader(validation, batch_size=cfg.dataset.batch_size_val, shuffle=False, **kwargs)
 
     test = data_utils.TensorDataset(torch.from_numpy(x_test).float(), torch.from_numpy(y_test))
-    test_loader = data_utils.DataLoader(test, batch_size=cfg.dataset.batch_size_val, shuffle=True, **kwargs)
+    test_loader = data_utils.DataLoader(test, batch_size=cfg.dataset.batch_size_test, shuffle=True, **kwargs)
     print("Length of train_loader: ", len(train_loader), "Length of train_loader dataset: ", len(train_loader.dataset))
     print("Length of val_loader: ", len(val_loader), "Length of val_loader dataset: ", len(val_loader.dataset))
     print("Length of test_loader: ", len(test_loader), "Length of test_loader dataset: ", len(test_loader.dataset))
@@ -132,7 +132,7 @@ def load_binary_mnist(cfg, **kwargs):
 
     dataloader_train = torch.utils.data.DataLoader(ds_train, batch_size=cfg.dataset.batch_size, shuffle=True, num_workers=0)
     dataloader_valid = torch.utils.data.DataLoader(ds_valid, batch_size=cfg.dataset.batch_size_val, shuffle=False, num_workers=0)
-    dataloader_test = torch.utils.data.DataLoader(ds_test, batch_size=cfg.dataset.batch_size_val, shuffle=False, num_workers=0)
+    dataloader_test = torch.utils.data.DataLoader(ds_test, batch_size=cfg.dataset.batch_size_test, shuffle=False, num_workers=0)
 
     return dataloader_train, dataloader_valid, dataloader_test, cfg
 
@@ -164,7 +164,7 @@ def load_celeba(cfg, **kwargs):
 
     dataloader_train = torch.utils.data.DataLoader(ds_train, batch_size=cfg.dataset.batch_size, shuffle=True, num_workers=0)
     dataloader_val = torch.utils.data.DataLoader(ds_val, batch_size=cfg.dataset.batch_size_val, shuffle=False, num_workers=0)
-    dataloader_test = torch.utils.data.DataLoader(ds_test, batch_size=cfg.dataset.batch_size_val, shuffle=False, num_workers=0)
+    dataloader_test = torch.utils.data.DataLoader(ds_test, batch_size=cfg.dataset.batch_size_test, shuffle=False, num_workers=0)
     return dataloader_train, dataloader_val, dataloader_test, cfg
 
 
@@ -187,7 +187,7 @@ def load_svhn(cfg, **kwargs):
     ds_train, ds_val = torch.utils.data.random_split(ds_train, [int(0.9*len(ds_train)), len(ds_train) - int(0.9*len(ds_train))])
     dataloader_train = torch.utils.data.DataLoader(ds_train, batch_size=cfg.dataset.batch_size, shuffle=True, num_workers=0)
     dataloader_val = torch.utils.data.DataLoader(ds_val, batch_size=cfg.dataset.batch_size_val, shuffle=False, num_workers=0)
-    dataloader_test = torch.utils.data.DataLoader(ds_test, batch_size=cfg.dataset.batch_size_val, shuffle=False, num_workers=0)
+    dataloader_test = torch.utils.data.DataLoader(ds_test, batch_size=cfg.dataset.batch_size_test, shuffle=False, num_workers=0)
 
     return dataloader_train, dataloader_val, dataloader_test, cfg
 
@@ -199,7 +199,7 @@ def load_test_dataset(cfg, **kwargs):
 
     dataloader_train = torch.utils.data.DataLoader(ds_train, batch_size=cfg.dataset.batch_size, shuffle=True, num_workers=0)
     dataloader_eval = torch.utils.data.DataLoader(ds_eval, batch_size=cfg.dataset.batch_size_val, shuffle=False, num_workers=0)
-    dataloader_test = torch.utils.data.DataLoader(ds_test, batch_size=cfg.dataset.batch_size_val, shuffle=False, num_workers=0)
+    dataloader_test = torch.utils.data.DataLoader(ds_test, batch_size=cfg.dataset.batch_size_test, shuffle=False, num_workers=0)
 
     return dataloader_train, dataloader_eval, dataloader_test, cfg
 
