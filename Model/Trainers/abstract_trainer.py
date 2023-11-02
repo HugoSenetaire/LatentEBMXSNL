@@ -67,6 +67,7 @@ class AbstractTrainer:
         self.encoder.load_state_dict(torch.load(os.path.join(self.logger.dir, "encoder_{}.pt".format(name))))
         self.energy.load_state_dict(torch.load(os.path.join(self.logger.dir, "energy_{}.pt".format(name))))
         self.extra_prior.load_state_dict(torch.load(os.path.join(self.logger.dir, "extra_prior_{}.pt".format(name))))
+        self.compile()
 
     def compile(self):
         self.generator.to(self.cfg.trainer.device)
