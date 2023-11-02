@@ -11,7 +11,7 @@ from typing import Any, Optional, Union
 @dataclass
 class BaseGeneratorConfig:
     network_name: str = MISSING
-    activation_name: str = MISSING
+    activation_name: Optional[Union[str,None]] = None
     loss_reconstruction_name: str = MISSING
     llhd_sigma: Optional[Union[float,None]] = None
     ngf: int = MISSING
