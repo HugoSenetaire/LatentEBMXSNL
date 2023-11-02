@@ -56,6 +56,18 @@ class AbstractTrainer:
         self.n_iter_pretrain_encoder = cfg.trainer.n_iter_pretrain_encoder
         self.compile()
 
+    def save_model(self, name=""):
+        torch.save(self.generator.state_dict(), os.path.join(self.logger.dir, "generator_{}.pt".format(name)))
+        torch.save(self.encoder.state_dict(), os.path.join(self.logger.dir, "encoder_{}.pt".format(name)))
+        torch.save(self.energy.state_dict(), os.path.join(self.logger.dir, "energy_{}.pt".format(name)))
+        torch.save(self.extra_prior.state_dict(), os.path.join(self.logger.dir, "extra_prior_{}.pt".format(name)))
+
+    def load_model(self, name=""):
+        self.generator.load_state_dict(torch.load(os.path.join(self.logger.dir, "generator_{}.pt".format(name))))
+        self.encoder.load_state_dict(torch.load(os.path.join(self.logger.dir, "encoder_{}.pt".format(name))))
+        self.energy.load_state_dict(torch.load(os.path.join(self.logger.dir, "energy_{}.pt".format(name))))
+        self.extra_prior.load_state_dict(torch.load(os.path.join(self.logger.dir, "extra_prior_{}.pt".format(name))))
+
     def compile(self):
         self.generator.to(self.cfg.trainer.device)
         self.opt_generator = get_optimizer(self.cfg.optim_generator, self.generator)
@@ -98,15 +110,20 @@ class AbstractTrainer:
             else:
                 dic_loss = self.train_step(x, self.global_step)
 
+            
+
             # Log
             if self.global_step % self.cfg.trainer.log_every == 0:
                 log(self.global_step, dic_loss, logger=self.logger)
 
-            # Save
+            # Save images
             if self.global_step % self.cfg.trainer.save_images_every == 0:
                 self.draw_samples(x, self.global_step)
                 self.plot_latent(dataloader=train_dataloader,step = self.global_step)
 
+            # Save models :
+            if self.global_step % self.cfg.trainer.save_every == 0 and self.global_step>1:
+                self.save_model(name=str(self.global_step))
 
             # Eval
             if (self.global_step) % self.cfg.trainer.val_every == 0 and val_dataloader is not None:
@@ -115,7 +132,7 @@ class AbstractTrainer:
 
                 
             # Test
-            if (self.global_step)%self.cfg.trainer.test_every == 0 and test_dataloader is not None and self.global_step>1:
+            if (self.global_step)%self.cfg.trainer.test_every == 0 and test_dataloader is not None :
                 self.eval(test_dataloader, self.global_step, name="test/")
 
             
