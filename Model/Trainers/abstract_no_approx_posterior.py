@@ -118,7 +118,7 @@ class NoApproxPosterior(AbstractTrainer):
         super().SNIS_eval(val_data, step, name=name)
         iterator = iter(val_data)
         total_dic_feedback = {}
-        ranger = tqdm.tqdm(range(len(val_data)), desc="snis_eval_reverse", position=1, leave=False)
+        ranger = tqdm.tqdm(range(len(val_data)), desc=f"snis_{name[:-1]}_reverse", position=1, leave=False)
         multiple_sample_val_SNIS = getattr(self.cfg.trainer, "multiple_sample_{}_SNIS".format(name[:-1]),)
         for i in ranger:
             dic_feedback = {}
@@ -180,7 +180,7 @@ class NoApproxPosterior(AbstractTrainer):
         super().elbo_eval(val_data,log_partition_estimate, step, name=name)
         iterator = iter(val_data)
         total_dic_feedback = {}
-        ranger = tqdm.tqdm(range(len(val_data)), desc="elbo_eval_reverse", position=1, leave=False)
+        ranger = tqdm.tqdm(range(len(val_data)), desc=f"elbo_{name[:-1]}_reverse", position=1, leave=False)
         multiple_sample_val_elbo = getattr(self.cfg.trainer, "multiple_sample_{}".format(name[:-1]),)
         for i in ranger:
             dic_feedback = {}

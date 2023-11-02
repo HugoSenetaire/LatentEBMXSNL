@@ -258,7 +258,7 @@ class AbstractTrainer:
     def elbo_eval(self, val_data, log_partition_estimate, step, name="val/"):
         iterator = iter(val_data)
         total_dic_feedback = {}
-        ranger = tqdm.tqdm(range(len(val_data)), desc="elbo_eval", position=1, leave=False)
+        ranger = tqdm.tqdm(range(len(val_data)), desc=f"elbo_{name[:-1]}", position=1, leave=False)
         multiple_sample_val_elbo = getattr(self.cfg.trainer, "multiple_sample_{}".format(name[:-1]))
         for i in ranger:
             dic_feedback = {}
@@ -345,7 +345,7 @@ class AbstractTrainer:
 
         iterator = iter(val_data)
         total_dic_feedback = {}
-        ranger = tqdm.tqdm(range(len(val_data)), desc="SNIS_eval", position=1, leave=False)
+        ranger = tqdm.tqdm(range(len(val_data)), desc=f"SNIS_{name[:-1]}", position=1, leave=False)
         multiple_sample_val_SNIS = getattr(self.cfg.trainer, "multiple_sample_{}_SNIS".format(name[:-1]))
         for i in ranger:
             dic_feedback = {}
