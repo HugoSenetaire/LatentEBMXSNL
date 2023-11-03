@@ -91,7 +91,7 @@ class SNELBO_Aggregate(AbstractTrainer):
             "base_dist_z_approximate": base_dist_z_approximate.mean().item(),
             "base_dist_z_base_dist" : base_dist_z_base_dist.mean().item(),
             "base_dist_z_aggregate" : base_dist_z_aggregate.mean().item(),
-            "log_Z":log_partition_estimate.item(),
+            "log_z":log_partition_estimate.item(),
             "KL_loss_no_ebm": KL_loss.item(),
             "energy_approximate": energy_approximate.mean().item(),
             "energy_base_dist": energy_base_dist.mean().item(),

@@ -46,6 +46,10 @@ class AbstractTrainer:
         if cfg.trainer.log_dir is None:
             cfg.trainer.log_dir = os.path.join(cfg.machine.root, "logs",)
             print("Setting log dir to " + cfg.trainer.log_dir)
+
+        self.save_dir = os.path.join(cfg.trainer.log_dir, cfg.trainer.trainer_name + "_" + cfg.prior.prior_name + "_" + cfg.encoder.latent_distribution_name + time.strftime("%Y%m%d-%H%M%S"))
+        if not os.path.exists(self.save_dir):
+            os.makedirs(self.save_dir)
         self.logger = wandb.init(
             project="LatentEBM_{}_{}".format(cfg.dataset.dataset_name,str(cfg.trainer.nz)),
             config=OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True),
@@ -58,16 +62,16 @@ class AbstractTrainer:
         self.compile()
 
     def save_model(self, name=""):
-        torch.save(self.generator.state_dict(), os.path.join(self.logger.dir, "generator_{}.pt".format(name)))
-        torch.save(self.encoder.state_dict(), os.path.join(self.logger.dir, "encoder_{}.pt".format(name)))
-        torch.save(self.energy.state_dict(), os.path.join(self.logger.dir, "energy_{}.pt".format(name)))
-        torch.save(self.extra_prior.state_dict(), os.path.join(self.logger.dir, "extra_prior_{}.pt".format(name)))
+        torch.save(self.generator.state_dict(), os.path.join(self.save_dir, "generator_{}.pt".format(name)))
+        torch.save(self.encoder.state_dict(), os.path.join(self.save_dir, "encoder_{}.pt".format(name)))
+        torch.save(self.energy.state_dict(), os.path.join(self.save_dir, "energy_{}.pt".format(name)))
+        torch.save(self.extra_prior.state_dict(), os.path.join(self.save_dir, "extra_prior_{}.pt".format(name)))
 
     def load_model(self, name=""):
-        self.generator.load_state_dict(torch.load(os.path.join(self.logger.dir, "generator_{}.pt".format(name))))
-        self.encoder.load_state_dict(torch.load(os.path.join(self.logger.dir, "encoder_{}.pt".format(name))))
-        self.energy.load_state_dict(torch.load(os.path.join(self.logger.dir, "energy_{}.pt".format(name))))
-        self.extra_prior.load_state_dict(torch.load(os.path.join(self.logger.dir, "extra_prior_{}.pt".format(name))))
+        self.generator.load_state_dict(torch.load(os.path.join(self.save_dir, "generator_{}.pt".format(name))))
+        self.encoder.load_state_dict(torch.load(os.path.join(self.save_dir, "encoder_{}.pt".format(name))))
+        self.energy.load_state_dict(torch.load(os.path.join(self.save_dir, "energy_{}.pt".format(name))))
+        self.extra_prior.load_state_dict(torch.load(os.path.join(self.save_dir, "extra_prior_{}.pt".format(name))))
         self.compile()
 
     def compile(self):
@@ -130,6 +134,8 @@ class AbstractTrainer:
             # Eval
             if (self.global_step) % self.cfg.trainer.val_every == 0 and val_dataloader is not None:
                 self.eval(val_dataloader, self.global_step)
+                self.fid_eval(val_data=test_dataloader, step=self.global_step, name="val/")
+
 
                 
             # Test

@@ -35,6 +35,8 @@ class NoApproxPosterior(AbstractTrainer):
         assert self.sch_reverse_encoder != self.sch_encoder
 
     def train_approx_posterior_reverse(self, x, z_g_k, step):
+        if not self.use_reverse:
+            return {}
         dic_feedback = {}
         self.opt_reverse_encoder.zero_grad()
         params_reverse = self.reverse_encoder(x)
