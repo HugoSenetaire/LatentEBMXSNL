@@ -18,11 +18,11 @@ class NoApproxPosterior(AbstractTrainer):
     
     def save_model(self, name=""):
         super().save_model(name)
-        torch.save(self.reverse_encoder.state_dict(), self.logger.path + "/reverse_encoder.pth")
+        torch.save(self.reverse_encoder.state_dict(), self.cfg.machine.root + "/reverse_encoder.pth")
 
     def load_model(self, name=""):
         super().load_model(name)
-        self.reverse_encoder.load_state_dict(torch.load(self.logger.path + "/reverse_encoder.pth"))
+        self.reverse_encoder.load_state_dict(torch.load(self.cfg.machine.root + "/reverse_encoder.pth"))
         self.compile_reverse()
     
     def compile_reverse(self):
