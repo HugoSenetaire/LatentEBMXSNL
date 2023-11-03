@@ -55,9 +55,9 @@ class ContrastiveDivergence(NoApproxPosterior):
         self.grad_clipping_all_net(["energy"], step=step)
         self.opt_energy.step()
 
-
         dic_total.update(self.train_approx_posterior(x, step))
-        dic_total.update(self.train_approx_posterior_reverse(x, z_g_k, step))
+        if self.use_reverse :
+            dic_total.update(self.train_approx_posterior_reverse(x, z_g_k, step))
 
         dic_total.update({
             "loss_e": loss_e,
