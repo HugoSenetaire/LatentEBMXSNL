@@ -1,0 +1,3 @@
+defaults :
+  - base_hyperspherical_uniform
+prior_name : hyperspherical_uniform
