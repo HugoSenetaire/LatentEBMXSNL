@@ -5,6 +5,7 @@ import torchvision as tv
 import wandb
 import numpy as np 
 
+COLORS = ["red", "blue", "green", "yellow", "purple", "orange", "pink", "brown", "black", "grey"]
 
 def log(step, dic_loss, logger, name=""):
   for key,value in dic_loss.items():
@@ -51,7 +52,7 @@ def get_extremum(liste = []):
 
 
 
-def plot_contour(sample, energy_list, energy_list_names, x, y, title, logger, step):
+def plot_contour(sample, energy_list, energy_list_names, x, y, title, logger, step, targets = None):
   if sample is not None :
     sample = sample.detach().cpu().numpy()
   fig, axs = plt.subplots(nrows=1, ncols= len(energy_list), figsize=(len(energy_list)*10, 10))
@@ -59,7 +60,16 @@ def plot_contour(sample, energy_list, energy_list_names, x, y, title, logger, st
     energy = energy.detach().cpu().numpy()
     fig.colorbar(axs[k].contourf(x,y, energy,), ax=axs[k])
     if sample is not None :
-      axs[k].scatter(sample[:,0], sample[:,1], c="red", s=1, alpha=0.5)
+      if targets is not None :
+        if targets.shape[0] != sample.shape[0]:
+          nb_samples = sample.shape[0]/targets.shape[0]
+          current_targets = targets.unsqueeze(0).expand(int(nb_samples), targets.shape[0]).flatten()
+        else :
+          current_targets = targets
+        current_colors = [COLORS[int(current_targets[i].item())] for i in range(current_targets.shape[0])]
+        axs[k].scatter(sample[:,0], sample[:,1], c=current_colors, s=1, alpha=0.8)
+      else :
+        axs[k].scatter(sample[:,0], sample[:,1], c="red", s=1, alpha=0.8)
     axs[k].set_title(energy_list_names[k])
   fig.suptitle(title)
   img = wandb.Image(fig, caption=title)

@@ -537,12 +537,16 @@ class AbstractTrainer:
         if self.cfg.trainer.nz != 2:
             pass
         else :
-            data = next(iter(dataloader))[0].to(self.cfg.trainer.device)
-            while len(data)<1000:
-                data = torch.cat([data, next(iter(dataloader))[0].to(self.cfg.trainer.device)], dim=0)
-            data = data[:1000]
-
-            len_samples = min(1000, data.shape[0])
+            batch = next(iter(dataloader))
+            data = batch[0].to(self.cfg.trainer.device)
+            targets = batch[1].to(self.cfg.trainer.device)
+            while len(data)<5000:
+                batch = next(iter(dataloader))
+                data = torch.cat([data,batch[0].to(self.cfg.trainer.device)], dim=0)
+                targets = torch.cat([targets, batch[1].to(self.cfg.trainer.device)], dim=0)
+            data = data[:5000]
+            targets = targets[:5000]
+            len_samples = min(5000, data.shape[0])
             params = self.encoder(data[:len_samples])
             mu_q, log_var_q = self.encoder.latent_distribution.get_plots(params)
             samples_approx_post = self.encoder.latent_distribution.r_sample(params, n_samples=10).reshape(10*len_samples, self.cfg.trainer.nz)
@@ -567,22 +571,27 @@ class AbstractTrainer:
                 params_reverse = None
 
             if self.cfg.prior.prior_name == "gaussian":
-                self.plot_samples_2d(liste_samples, -3, 3, liste_samples_name, step, params=params, params_reverse=params_reverse)
-                self.plot_samples_2d(liste_samples, -10, 10, liste_samples_name, step, params=params, params_reverse=params_reverse)
-                self.plot_samples_2d(liste_samples, -30, 30, liste_samples_name, step, params=params, params_reverse=params_reverse)
+                self.plot_samples_2d(liste_samples, -3, 3, liste_samples_name, step, params=params, params_reverse=params_reverse, targets = targets)
+                self.plot_samples_2d(liste_samples, -10, 10, liste_samples_name, step, params=params, params_reverse=params_reverse, targets = targets)
+                self.plot_samples_2d(liste_samples, -30, 30, liste_samples_name, step, params=params, params_reverse=params_reverse, targets = targets)
             elif "hyperspherical" in self.cfg.prior.prior_name:
-                self.plot_samples_2d(liste_samples, -2, 2, liste_samples_name, step, params=params, params_reverse=params_reverse)
+                self.plot_samples_2d(liste_samples, -2, 2, liste_samples_name, step, params=params, params_reverse=params_reverse, targets = targets)
             elif self.cfg.prior.prior_name =='uniform' :
-                self.plot_samples_2d(liste_samples, self.cfg.prior.min+1e-2, self.cfg.prior.max-1e-2, liste_samples_name, step, params=params, params_reverse=params_reverse)
+                self.plot_samples_2d(liste_samples, self.cfg.prior.min+1e-2, self.cfg.prior.max-1e-2, liste_samples_name, step, params=params, params_reverse=params_reverse, targets = targets)
             else :
                 raise ValueError("Prior name not recognized")
 
-    def plot_samples_2d(self, samples, min_x, max_x, liste_samples_name, step, params = None, params_reverse=None, ):
+    def plot_samples_2d(self, samples, min_x, max_x, liste_samples_name, step, params = None, params_reverse=None, targets = None):
         energy_list_small_scale, energy_list_names, x, y = self.get_all_energies(samples[0], min_x=min_x, max_x=max_x, params = params, params_reverse = params_reverse)
         for sample, samples_names in zip(samples, liste_samples_name):
+                
             samples_aux = self.cut_samples(sample, min_x=min_x, max_x=max_x)
             title = samples_names+f" [{str(min_x)}, {str(max_x)}]"
-            plot_contour(samples_aux, energy_list_small_scale, energy_list_names, x, y, step=step, title=title, logger=self.logger,)
+            if targets is not None and "posterior" in samples_names.lower():
+                plot_contour(samples_aux, energy_list_small_scale, energy_list_names, x, y, step=step, title=title, logger=self.logger, targets=targets)
+            else :
+                plot_contour(samples_aux, energy_list_small_scale, energy_list_names, x, y, step=step, title=title, logger=self.logger,)
+
 
 
     def cut_samples(self, samples, min_x=-10, max_x =-10):
