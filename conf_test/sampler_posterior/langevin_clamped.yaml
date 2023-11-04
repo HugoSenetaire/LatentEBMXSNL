@@ -1,6 +1,8 @@
 defaults :
   - base_langevin_sampler
-K : 20
-a : 1e-1
+num_samples: 1
+thinning: 1
+warmup_steps: 20
+step_size : 1e-1
 clamp_min_data: 0.0
 clamp_max_data: 1.0

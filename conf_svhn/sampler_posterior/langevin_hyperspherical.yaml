@@ -1,5 +1,7 @@
 defaults :
   - base_langevin_sampler
-K : 20
-a : 1e-1
+num_samples: 1
+thinning: 1
+warmup_steps: 20
+step_size : 1e-1
 hyperspherical: True

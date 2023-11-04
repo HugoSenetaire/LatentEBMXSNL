@@ -452,7 +452,7 @@ class AbstractTrainer:
         activation_mean = []
         for i in ranger:
             z_e_0 = self.prior.sample(batch_save)
-            z_e_k, _ = self.sampler_prior(z_e_0, self.energy, self.prior,)
+            z_e_k = self.sampler_prior(z_e_0, self.energy, self.prior,)
             x_sample, x_mean = self.generator.sample(z_e_k, return_mean=True)
             with torch.no_grad():
                 x_sample = x_sample.detach().to(current_device).reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size)
@@ -490,8 +490,10 @@ class AbstractTrainer:
     def draw_samples(self, x, step):
         batch_save = min(64, x.shape[0])
         z_e_0, z_g_0 = self.prior.sample(batch_save), self.prior.sample(batch_save)
-        z_e_k, z_grad_norm = self.sampler_prior(z_e_0, self.energy, self.prior,)
-        z_g_k, z_g_grad_norm, z_e_grad_norm = self.sampler_posterior(z_g_0,x[:batch_save], self.generator, self.energy, self.prior,)
+        z_e_k = self.sampler_prior(z_e_0, self.energy, self.prior,)
+        z_g_k = self.sampler_posterior(z_g_0, x[:batch_save], self.generator, self.energy, self.prior,)
+        # z_e_k, z_grad_norm = self.sampler_prior(z_e_0, self.energy, self.prior,)
+        # z_g_k, z_g_grad_norm, z_e_grad_norm = self.sampler_posterior(z_g_0,x[:batch_save], self.generator, self.energy, self.prior,)
 
         with torch.no_grad():
             norm_z_e_0 = z_e_0.norm(dim=1).reshape(batch_save,)
@@ -552,8 +554,10 @@ class AbstractTrainer:
             samples_approx_post = self.encoder.latent_distribution.r_sample(params, n_samples=10).reshape(10*len_samples, self.cfg.trainer.nz)
 
             z_e_0, z_g_0 = self.prior.sample(len_samples), self.prior.sample(len_samples)
-            z_e_k, z_grad_norm = self.sampler_prior(z_e_0, self.energy, self.prior,)
-            z_g_k, z_g_grad_norm, z_e_grad_norm = self.sampler_posterior(z_g_0, data[:len_samples], self.generator, self.energy, self.prior,)
+            # z_e_k, z_grad_norm = self.sampler_prior(z_e_0, self.energy, self.prior,)
+            z_e_k = self.sampler_prior(z_e_0, self.energy, self.prior,)
+            # z_g_k, z_g_grad_norm, z_e_grad_norm = self.sampler_posterior(z_g_0, data[:len_samples], self.generator, self.energy, self.prior,)
+            z_g_k = self.sampler_posterior(z_g_0, data[:len_samples], self.generator, self.energy, self.prior,)
          
             liste_samples = [z_e_0, z_e_k, mu_q, samples_approx_post, z_g_k]
             liste_samples_name = ["Latent Base Distribution", "Latent Prior", "Latent Approximate Posterior Mu ", "Latent Approximate Posterior Sample", "Latent Posterior"]

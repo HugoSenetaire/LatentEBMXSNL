@@ -1,4 +1,6 @@
 defaults :
   - base_langevin_sampler
-K : 80
-a : 4e-1
+num_samples: 1
+thinning: 1
+warmup_steps: 80
+step_size : 4e-1
