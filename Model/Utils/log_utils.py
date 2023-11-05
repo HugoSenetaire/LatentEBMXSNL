@@ -25,7 +25,7 @@ dic = {
 
 def draw(img, step, logger, transform_back_name = "0_1", aux_name=""):
   transform_back = dic[transform_back_name]
-  fig = plt.figure(figsize=(10,10))
+  fig = plt.figure(figsize=(int(np.sqrt(img.shape[0])),int(np.sqrt(img.shape[0]))))
   grid_prior = tv.utils.make_grid(transform_back(img), normalize=True, nrow=int(np.sqrt(img.shape[0])))
   plt.imshow(grid_prior.detach().cpu().permute(1,2,0).numpy())
   plt.title(f"{aux_name}")
