@@ -22,6 +22,7 @@ class BaseSampler:
     clip_data_norm : Optional[float] = None
     clip_grad_norm: Optional[float] = None
     hyperspherical: Optional[bool] = False
+    multiprocess : str = "None" # "None" or "Cheating" or "Standard" Depending on whether I want to use multiprocessing or not
 
 @dataclass
 class BaseLangevinSampler(BaseSampler):

@@ -93,7 +93,7 @@ class LangevinPosterior(AbstractSamplerStep):
             g_log_lkhd = generator.get_loss(param, x).sum(dim=0)
             grad_g = torch.autograd.grad(g_log_lkhd, z, retain_graph=True)[0]
 
-            en = energy(z).squeeze() - base_dist.log_prob(z).reshape(z.shape[0])
+            en = energy(z).reshape(z.shape[0]) - base_dist.log_prob(z).reshape(z.shape[0])
             grad_e = torch.autograd.grad(en.sum(), z)[0]
 
             total_grad = grad_g + grad_e
