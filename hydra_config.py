@@ -14,7 +14,7 @@ from Model.Encoder.hydra_config import store_base_encoder, BaseEncoderConfig
 from Model.Energy.hydra_config import store_base_energy, BaseEnergyConfig
 from Model.Generator.hydra_config import store_base_generator, BaseGeneratorConfig
 from Model.Optim.hydra_config import store_base_optim, BaseOptimConfig
-from Model.Sampler.hydra_config import store_base_langevin_sampler, BaseLangevinSampler
+from Model.Sampler.hydra_config import store_base_langevin_sampler, BaseSampler
 from Model.Trainers.hydra_config import store_base_trainer, BaseTrainerConfig
 from Model.Prior.hydra_config import store_base_prior, BasePriorConfig, store_base_extra_prior
 from Dataset.hydra_config import store_base_dataset, BaseDatasetConfig
@@ -47,8 +47,8 @@ class Config:
     extra_prior : BasePriorConfig = MISSING
     regularization: BaseRegularizationConfig = MISSING
     regularization_encoder: BaseRegularizationEncoderConfig = MISSING
-    sampler_prior: BaseLangevinSampler = MISSING
-    sampler_posterior: BaseLangevinSampler = MISSING
+    sampler_prior: BaseSampler = MISSING
+    sampler_posterior: BaseSampler = MISSING
     optim_encoder: BaseOptimConfig = MISSING
     optim_energy: BaseOptimConfig = MISSING
     optim_generator: BaseOptimConfig = MISSING
