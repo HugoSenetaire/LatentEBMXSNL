@@ -60,6 +60,22 @@ class AbstractTrainer:
         self.n_iter_pretrain = cfg.trainer.n_iter_pretrain
         self.n_iter_pretrain_encoder = cfg.trainer.n_iter_pretrain_encoder
         self.compile()
+        
+    def get_fixed_x(self, train_dataloader, val_dataloader, test_dataloader):
+        max_batch = self.cfg.sampler_posterior.num_chains_test
+        if test_dataloader is not None :
+            current_data_loader = test_dataloader
+        elif val_dataloader is not None:
+            current_data_loader = val_dataloader
+        else :
+            current_data_loader = train_dataloader
+        x = []
+        while (len(x)<max_batch):
+            x.append(next(iter(current_data_loader))[0].to(self.cfg.trainer.device))
+        x = torch.cat(x, dim=0)[:max_batch]
+        self.x_fixed = x
+
+
 
     def save_model(self, name=""):
         torch.save(self.generator.state_dict(), os.path.join(self.save_dir, "generator_{}.pt".format(name)))
@@ -96,6 +112,7 @@ class AbstractTrainer:
     def train(self, train_dataloader, val_dataloader=None, test_dataloader=None):
         self.global_step = 0
         iterator = iter(train_dataloader)
+        self.get_fixed_x(train_dataloader, val_dataloader, test_dataloader)
         for self.global_step in tqdm.tqdm(range(self.n_iter_pretrain_encoder + self.n_iter_pretrain + self.n_iter)):
             try :
                 x = next(iterator)[0].to(self.cfg.trainer.device)
@@ -379,7 +396,6 @@ class AbstractTrainer:
             batch = next(iterator)
             x = batch[0].to(self.cfg.trainer.device)
             x = x.reshape(x.shape[0], self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size)
-
             x_expanded = x.unsqueeze(0).expand(multiple_sample_val_SNIS, x.shape[0], self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size).flatten(0,1)
             expanded_batch_size = x.shape[0]*multiple_sample_val_SNIS
 
@@ -451,8 +467,18 @@ class AbstractTrainer:
         activation_sample = []
         activation_mean = []
         for i in ranger:
-            z_e_0 = self.prior.sample(batch_save)
-            z_e_k = self.sampler_prior(z_e_0, self.energy, self.prior,)
+            if self.cfg.sampler_prior.sampler_name == "nuts":
+                z_e_0, z_e_k = self.handle_specific_sampler_prior(batch_save)
+            else :
+                if self.sampler_prior.num_samples >1:
+                    z_e_0 = self.prior.sample(8)
+                    self.sampler_prior.num_samples=batch_save/8
+                    z_e_k = self.sampler_prior(z_e_0, self.energy, self.prior,)
+                    self.sampler_prior.num_samples = self.cfg.sampler_prior.num_samples
+                else :
+                    z_e_0 = self.prior.sample(batch_save)
+                    z_e_k = self.sampler_prior(z_e_0, self.energy, self.prior,)
+                
             x_sample, x_mean = self.generator.sample(z_e_k, return_mean=True)
             with torch.no_grad():
                 x_sample = x_sample.detach().to(current_device).reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size)
@@ -488,57 +514,47 @@ class AbstractTrainer:
 
 
     def draw_samples(self, x, step):
-        batch_save = min(64, x.shape[0])
-        z_e_0, z_g_0 = self.prior.sample(batch_save), self.prior.sample(batch_save)
+        print("Drawing samples")
+        batch_save_bast_dist = self.cfg.sampler_prior.num_chains_test
+        batch_save_prior = self.cfg.sampler_prior.num_chains_test * self.cfg.sampler_prior.num_samples
+        batch_save_posterior = self.cfg.sampler_posterior.num_chains_test * self.cfg.sampler_posterior.num_samples
+        z_e_0, z_g_0 = self.prior.sample(self.cfg.sampler_prior.num_chains_test), self.prior.sample(self.cfg.sampler_posterior.num_chains_test)
         z_e_k = self.sampler_prior(z_e_0, self.energy, self.prior,)
-        z_g_k = self.sampler_posterior(z_g_0, x[:batch_save], self.generator, self.energy, self.prior,)
+        z_g_k = self.sampler_posterior(z_g_0, self.x_fixed, self.generator, self.energy, self.prior,)
         # z_e_k, z_grad_norm = self.sampler_prior(z_e_0, self.energy, self.prior,)
         # z_g_k, z_g_grad_norm, z_e_grad_norm = self.sampler_posterior(z_g_0,x[:batch_save], self.generator, self.energy, self.prior,)
 
         with torch.no_grad():
-            norm_z_e_0 = z_e_0.norm(dim=1).reshape(batch_save,)
-            norm_z_e_k = z_e_k.norm(dim=1).reshape(batch_save,)
-            norm_z_g_k = z_g_0.norm(dim=1).reshape(batch_save,)
-            
-            # Mean norm
-            log(step, {"norm_z_e_0":norm_z_e_0.mean().item()}, self.logger, name="sample/")
-            log(step, {"norm_z_e_k":norm_z_e_k.mean().item()}, self.logger, name="sample/")
-            log(step, {"norm_z_g_k":norm_z_g_k.mean().item()}, self.logger, name="sample/")
-            # Std Norm
-            log(step, {"norm_z_e_0_std":norm_z_e_0.std().item()}, self.logger, name="sample/")
-            log(step, {"norm_z_e_k_std":norm_z_e_k.std().item()}, self.logger, name="sample/")
-            log(step, {"norm_z_g_k_std":norm_z_g_k.std().item()}, self.logger, name="sample/")
-
-
             x_base, mu_base =self.generator.sample(z_e_0, return_mean=True)
-            draw(x_base.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleBaseDistribution")
-            draw(mu_base.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="MeanBaseDistribution")
+            draw(x_base.reshape(batch_save_bast_dist, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleBaseDistribution")
+            draw(mu_base.reshape(batch_save_bast_dist, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="MeanBaseDistribution")
         
             x_prior, mu_prior =self.generator.sample(z_e_k, return_mean=True)
-            draw(x_prior.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleEBMPrior")
-            draw(mu_prior.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="MeanEBMPrior")
+            draw(x_prior.reshape(batch_save_prior, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleEBMPrior")
+            draw(mu_prior.reshape(batch_save_prior, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="MeanEBMPrior")
     
             x_posterior, mu_posterior = self.generator.sample(z_g_k, return_mean=True)
-            draw(x_posterior.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleEBMPosterior")
-            draw(mu_posterior.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="MeanEBMPosterior")
+            draw(x_posterior.reshape(batch_save_posterior, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleEBMPosterior")
+            draw(mu_posterior.reshape(batch_save_posterior, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="MeanEBMPosterior")
 
 
-            param = self.encoder(x[:batch_save])
+            param = self.encoder(x[:batch_save_posterior])
             sample_mean, sample_std = self.encoder.latent_distribution.get_plots(param,)
 
             x_reconstruction, mu_reconstruction = self.generator.sample(sample_mean, return_mean=True)
-            draw(x_reconstruction.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleReconstruction")
-            draw(mu_reconstruction.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="MeanReconstruction")
+            draw(x_reconstruction.reshape(batch_save_posterior, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleReconstruction")
+            draw(mu_reconstruction.reshape(batch_save_posterior, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="MeanReconstruction")
         
-            extra_prior_samples = self.extra_prior.sample(batch_save).reshape(batch_save, self.cfg.trainer.nz, 1, 1).to(self.cfg.trainer.device)
+            extra_prior_samples = self.extra_prior.sample(batch_save_prior).reshape(batch_save_prior, self.cfg.trainer.nz, 1, 1).to(self.cfg.trainer.device)
             x_prior, mu_prior = self.generator.sample(extra_prior_samples, return_mean=True)
-            draw(x_prior.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleExtraPrior")
-            draw(mu_prior.reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="MeanExtraPrior")
+            draw(x_prior.reshape(batch_save_posterior, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleExtraPrior")
+            draw(mu_prior.reshape(batch_save_posterior, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="MeanExtraPrior")
 
     def plot_latent(self, dataloader, step):
         if self.cfg.trainer.nz != 2:
             pass
         else :
+            print("Plotting latent in 2D to see the distribution")
             batch = next(iter(dataloader))
             data = batch[0].to(self.cfg.trainer.device)
             targets = batch[1].to(self.cfg.trainer.device)
@@ -553,11 +569,19 @@ class AbstractTrainer:
             mu_q, log_var_q = self.encoder.latent_distribution.get_plots(params)
             samples_approx_post = self.encoder.latent_distribution.r_sample(params, n_samples=10).reshape(10*len_samples, self.cfg.trainer.nz)
 
-            z_e_0, z_g_0 = self.prior.sample(len_samples), self.prior.sample(len_samples)
-            # z_e_k, z_grad_norm = self.sampler_prior(z_e_0, self.energy, self.prior,)
-            z_e_k = self.sampler_prior(z_e_0, self.energy, self.prior,)
-            # z_g_k, z_g_grad_norm, z_e_grad_norm = self.sampler_posterior(z_g_0, data[:len_samples], self.generator, self.energy, self.prior,)
-            z_g_k = self.sampler_posterior(z_g_0, data[:len_samples], self.generator, self.energy, self.prior,)
+            if self.cfg.sampler_prior.sampler_name == "nuts":
+                z_e_0, z_e_k = self.handle_specific_sampler_prior(nb_sample=1000)
+            else :
+                z_e_0 = self.prior.sample(len_samples)
+                z_e_k = self.sampler_prior(z_e_0[:int(len_samples/self.sampler_prior.num_samples)], self.energy, self.prior,)
+
+            if self.cfg.sampler_prior.sampler_name == "nuts":
+                z_g_0, z_g_k = self.handle_specific_sampler_posterior(data,nb_sample=1000)
+            else :
+                z_g_0 = self.prior.sample(len_samples)
+                limit = int(len_samples/self.sampler_posterior.num_samples)
+                z_g_k = self.sampler_posterior(z_g_0[:limit], data[:limit], self.generator, self.energy, self.prior,)
+    
          
             liste_samples = [z_e_0, z_e_k, mu_q, samples_approx_post, z_g_k]
             liste_samples_name = ["Latent Base Distribution", "Latent Prior", "Latent Approximate Posterior Mu ", "Latent Approximate Posterior Sample", "Latent Posterior"]
@@ -652,3 +676,30 @@ class AbstractTrainer:
             energy_list_names.append("Aggregate Posterior Reverse")
 
         return energy_list, energy_list_names, x, y
+    
+
+
+    def handle_specific_sampler_prior(self, nb_sample = 5000):
+        self.sampler_prior.multiprocess = "Cheating"
+        self.sampler_prior.num_samples = 1
+        z_e_0 = self.prior.sample(nb_sample)
+        z_e_k = self.sampler_prior(z_e_0, self.energy, self.prior,)
+        self.sampler_prior.multiprocess = self.cfg.sampler_prior.multiprocess
+        self.sampler_prior.num_samples = self.cfg.sampler_prior.num_samples
+        return z_e_0, z_e_k
+
+    def handle_specific_sampler_posterior(self, data, nb_sample = 5000):
+        self.sampler_posterior.multiprocess = "Cheating"
+        self.sampler_posterior.num_samples = 1
+        nb_chain = 20
+        batch_per_chain = int(np.ceil(nb_sample/nb_chain))
+        z_g_0 = self.prior.sample(nb_sample)
+        z_g_k = []
+        for k in range(nb_chain):
+            current_data = data[k*batch_per_chain:(k+1)*batch_per_chain]
+            current_z_g_0 = z_g_0[k*batch_per_chain:(k+1)*batch_per_chain]
+            z_g_k.append(self.sampler_posterior(current_z_g_0, current_data, generator = self.generator, energy = self.energy, base_dist = self.prior,))
+        z_g_k = torch.cat(z_g_k, dim=0)
+        self.sampler_posterior.multiprocess = self.cfg.sampler_posterior.multiprocess
+        self.sampler_posterior.num_samples = self.cfg.sampler_posterior.num_samples
+        return z_g_0, z_g_k
