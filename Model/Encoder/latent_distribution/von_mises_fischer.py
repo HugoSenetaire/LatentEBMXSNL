@@ -3,6 +3,7 @@ import torch
 import torch.nn.functional as F
 from ...Utils.hyperspherical_utils import VonMisesFisher
 from .abstract_latent_distribution import AbstractLatentDistribution
+import math 
 
 class VonMisesFischerPosterior(AbstractLatentDistribution):
     def __init__(self, cfg):
