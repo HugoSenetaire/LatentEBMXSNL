@@ -20,7 +20,8 @@ class VonMisesFischerPosterior(AbstractLatentDistribution):
         z_mean = z_mean / z_mean.norm(dim=-1, keepdim=True)
         # the `+ 1` prevent collapsing behaviors
         z_var = params[:, -1:]
-        z_var = F.softplus(z_var) + 1
+        # z_var = F.softplus(z_var) + 1
+        z_var = torch.sigmoid(z_var)*(2*math.pi-1)+1
 
 
         dic_params["z_mean"] = z_mean
