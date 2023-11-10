@@ -1,0 +1,25 @@
+defaults:
+  - base_config
+  - dataset : binary_mnist
+  - encoder : conv_mnist
+  - energy : energy_mnist
+  - generator: conv_mnist
+  - prior : gaussian
+  - extra_prior : gaussian
+  - regularization : no_reg
+  - regularization_encoder : no_reg
+  - sampler_prior : langevin_longer
+  - sampler_posterior : langevin_longer
+  - optim_encoder : adam
+  - optim_energy : adam
+  - optim_generator : adam
+  - optim_prior : adam
+  - scheduler_encoder : exponential_lr
+  - scheduler_energy : exponential_lr
+  - scheduler_generator : exponential_lr
+  - scheduler_prior : exponential_lr
+  - machine : titans
+  - trainer: snelbo
+
+
+

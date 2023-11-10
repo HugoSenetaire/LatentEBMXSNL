@@ -1,0 +1,7 @@
+defaults :
+  - base_mala_sampler
+num_samples: 2
+thinning: 50
+warmup_steps: 100
+num_chains_test: 32
+
