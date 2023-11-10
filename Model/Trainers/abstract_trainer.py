@@ -110,6 +110,7 @@ class AbstractTrainer:
 
 
     def train(self, train_dataloader, val_dataloader=None, test_dataloader=None):
+        self.encoder.init_network(train_dataloader, self.opt_encoder)       
         self.global_step = 0
         iterator = iter(train_dataloader)
         self.get_fixed_x(train_dataloader, val_dataloader, test_dataloader)

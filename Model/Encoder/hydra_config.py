@@ -17,6 +17,7 @@ class BaseEncoderConfig:
     forced_latent_min: Optional[Union[float, None]]= None # Just used in Uniform
     forced_latent_max: Optional[Union[float, None]]= None # Just used in Uniform
     sigmoid_version: Optional[bool] = False
+    init_network_type: Optional[Union[str, None]] = "mean"
 
 
 def store_base_encoder(cs: ConfigStore):
