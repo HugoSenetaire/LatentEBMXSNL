@@ -51,7 +51,7 @@ class AbstractTrainer:
         if not os.path.exists(self.save_dir):
             os.makedirs(self.save_dir)
         self.logger = wandb.init(
-            project="LatentEBM_{}_{}".format(cfg.dataset.dataset_name,str(cfg.trainer.nz)),
+            project="LatentEBM_{}_{}_v2".format(cfg.dataset.dataset_name,str(cfg.trainer.nz)),
             config=OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True),
             dir=cfg.trainer.log_dir,
             name= cfg.trainer.trainer_name + "_" + cfg.prior.prior_name + "_" + cfg.encoder.latent_distribution_name + time.strftime("%Y%m%d-%H%M%S"),
@@ -466,33 +466,48 @@ class AbstractTrainer:
         ranger = tqdm.tqdm(range(nb_batch), desc=f"fid_{name[:-1]}_gen", position=1, leave=False)
         activation_sample = []
         activation_mean = []
+        activation_prior_sample = []
+        activation_prior_mean = []
         for i in ranger:
             if self.cfg.sampler_prior.sampler_name == "nuts":
                 z_e_0, z_e_k = self.handle_specific_sampler_prior(batch_save)
             else :
                 if self.sampler_prior.num_samples >1:
-                    z_e_0 = self.prior.sample(8)
-                    self.sampler_prior.num_samples=batch_save/8
-                    z_e_k = self.sampler_prior(z_e_0, self.energy, self.prior,)
+                    z_e_0 = self.prior.sample(batch_save)
+                    self.sampler_prior.num_samples = int(batch_save/8)
+                    z_e_k = self.sampler_prior(z_e_0[:8], self.energy, self.prior,)
                     self.sampler_prior.num_samples = self.cfg.sampler_prior.num_samples
                 else :
                     z_e_0 = self.prior.sample(batch_save)
                     z_e_k = self.sampler_prior(z_e_0, self.energy, self.prior,)
                 
+            x_prior_sample, x_prior_mean = self.generator.sample(z_e_0, return_mean=True)
             x_sample, x_mean = self.generator.sample(z_e_k, return_mean=True)
             with torch.no_grad():
                 x_sample = x_sample.detach().to(current_device).reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size)
                 x_mean = x_mean.detach().to(current_device).reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size)
                 x_sample = x_sample.expand(batch_save, 3, self.cfg.dataset.img_size, self.cfg.dataset.img_size)
                 x_mean = x_mean.expand(batch_save, 3, self.cfg.dataset.img_size, self.cfg.dataset.img_size)
+                x_prior_sample = x_prior_sample.detach().to(current_device).reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size)
+                x_prior_mean = x_prior_mean.detach().to(current_device).reshape(batch_save, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size)
+                x_prior_sample = x_prior_sample.expand(batch_save, 3, self.cfg.dataset.img_size, self.cfg.dataset.img_size)
+                x_prior_mean = x_prior_mean.expand(batch_save, 3, self.cfg.dataset.img_size, self.cfg.dataset.img_size)
+                activation_prior_sample.append(calculate_activation(x_prior_sample, inception, device=current_device))
+                activation_prior_mean.append(calculate_activation(x_prior_mean, inception, device=current_device))
                 activation_sample.append(calculate_activation(x_sample, inception, device=current_device))
                 activation_mean.append(calculate_activation(x_mean, inception, device=current_device))
         activation_sample = np.concatenate(activation_sample, axis=0)
         activation_mean = np.concatenate(activation_mean, axis=0)
+        activation_prior_sample = np.concatenate(activation_prior_sample, axis=0)
+        activation_prior_mean = np.concatenate(activation_prior_mean, axis=0)
         mu_sample = np.mean(activation_sample, axis=0)
         sigma_sample = np.cov(activation_sample, rowvar=False)
         mu_mean = np.mean(activation_mean, axis=0)
         sigma_mean = np.cov(activation_mean, rowvar=False)
+        mu_prior_sample = np.mean(activation_prior_sample, axis=0)
+        sigma_prior_sample = np.cov(activation_prior_sample, rowvar=False)
+        mu_prior_mean = np.mean(activation_prior_mean, axis=0)
+        sigma_prior_mean = np.cov(activation_prior_mean, rowvar=False)
 
         
         activation_data = []
@@ -508,19 +523,23 @@ class AbstractTrainer:
 
         fid_sample = calculate_frechet_distance(mu_data, sigma_data, mu_sample, sigma_sample)
         fid_mean = calculate_frechet_distance(mu_data, sigma_data, mu_mean, sigma_mean)
+        fid_prior_sample = calculate_frechet_distance(mu_data, sigma_data, mu_prior_sample, sigma_prior_sample)
+        fid_prior_mean = calculate_frechet_distance(mu_data, sigma_data, mu_prior_mean, sigma_prior_mean)
+
 
         log(step, {"fid":fid_sample}, logger=self.logger, name=name)
         log(step, {"fid_mean":fid_mean}, logger=self.logger, name=name)
-
+        log(step, {"fid_prior_sample":fid_prior_sample}, logger=self.logger, name=name)
+        log(step, {"fid_prior_mean":fid_prior_mean}, logger=self.logger, name=name)
 
     def draw_samples(self, x, step):
         print("Drawing samples")
         batch_save_bast_dist = self.cfg.sampler_prior.num_chains_test
         batch_save_prior = self.cfg.sampler_prior.num_chains_test * self.cfg.sampler_prior.num_samples
         batch_save_posterior = self.cfg.sampler_posterior.num_chains_test * self.cfg.sampler_posterior.num_samples
-        z_e_0, z_g_0 = self.prior.sample(self.cfg.sampler_prior.num_chains_test), self.prior.sample(self.cfg.sampler_posterior.num_chains_test)
-        z_e_k = self.sampler_prior(z_e_0, self.energy, self.prior,)
-        z_g_k = self.sampler_posterior(z_g_0, self.x_fixed, self.generator, self.energy, self.prior,)
+        z_e_0, z_g_0 = self.prior.sample(batch_save_bast_dist), self.prior.sample(batch_save_bast_dist)
+        z_e_k = self.sampler_prior(z_e_0[:self.cfg.sampler_prior.num_chains_test], self.energy, self.prior,)
+        z_g_k = self.sampler_posterior(z_g_0[:self.cfg.sampler_posterior.num_chains_test], self.x_fixed, self.generator, self.energy, self.prior,)
         # z_e_k, z_grad_norm = self.sampler_prior(z_e_0, self.energy, self.prior,)
         # z_g_k, z_g_grad_norm, z_e_grad_norm = self.sampler_posterior(z_g_0,x[:batch_save], self.generator, self.energy, self.prior,)
 

@@ -21,7 +21,7 @@ class BaseTrainerConfig:
 
     # Iteration for training
     n_iter: int = 100000
-    n_iter_pretrain: int = 0
+    n_iter_pretrain: int = 20000
     n_iter_pretrain_encoder: int = 0
 
     #Save utils
