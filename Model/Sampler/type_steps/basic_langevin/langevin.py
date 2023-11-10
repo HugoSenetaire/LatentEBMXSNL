@@ -37,6 +37,7 @@ class LangevinPrior(AbstractSamplerStep):
         z = z.clone().detach().requires_grad_(True)
         samples = []
         num_chains = z.shape[0]
+        self.nb_steps = (self.num_samples-1) * self.thinning + 1 + self.warmup_steps
         for i in range(self.nb_steps):
             en = energy(z).squeeze() - base_dist.log_prob(z).reshape(z.shape[0])
 
@@ -88,6 +89,7 @@ class LangevinPosterior(AbstractSamplerStep):
         z = z.clone().detach().requires_grad_(True)
         num_chains = z.shape[0]
         samples = []
+        self.nb_steps = (self.num_samples-1) * self.thinning + 1 + self.warmup_steps
         for i in range(self.nb_steps):
             param = generator(z)
             g_log_lkhd = generator.get_loss(param, x).sum(dim=0)
