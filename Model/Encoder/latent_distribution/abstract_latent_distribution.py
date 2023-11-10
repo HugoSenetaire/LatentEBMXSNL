@@ -23,7 +23,7 @@ class AbstractLatentDistribution(nn.Module):
     def calculate_entropy(self, params, dic_params = None, empirical_entropy = False, n_samples=100):
         if empirical_entropy :
         # Empirical entropy
-            samples = self.r_sample(params, n_samples=n_samples, dic_params=dic_params)
+            samples = self.r_sample(params, n_samples=n_samples, dic_params=dic_params).reshape(-1, params.shape[0], self.cfg.trainer.nz).flatten(0,1)
             return -self.log_prob(params, samples, dic_params=dic_params).mean(0)
         else :
             raise NotImplementedError("Entropy not implemented for this distribution")
