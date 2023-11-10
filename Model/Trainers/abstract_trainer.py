@@ -96,7 +96,7 @@ class AbstractTrainer:
         self.sch_generator = get_scheduler(self.cfg.scheduler_generator, self.opt_generator)
 
         self.encoder.to(self.cfg.trainer.device)
-        self.opt_encoder = get_optimizer( self.cfg.optim_encoder, self.encoder)
+        self.opt_encoder = get_optimizer(self.cfg.optim_encoder, self.encoder)
         self.sch_encoder = get_scheduler(self.cfg.scheduler_encoder, self.opt_encoder)
         
         self.energy.to(self.cfg.trainer.device)
@@ -114,6 +114,17 @@ class AbstractTrainer:
         iterator = iter(train_dataloader)
         self.get_fixed_x(train_dataloader, val_dataloader, test_dataloader)
         for self.global_step in tqdm.tqdm(range(self.n_iter_pretrain_encoder + self.n_iter_pretrain + self.n_iter)):
+
+            # Eval
+            if (self.global_step) % self.cfg.trainer.val_every == 0 and val_dataloader is not None:
+                self.eval(val_dataloader, self.global_step)
+                self.fid_eval(val_data=test_dataloader, step=self.global_step, name="val/")
+                
+            # Test
+            if (self.global_step)%self.cfg.trainer.test_every == 0 and test_dataloader is not None and self.global_step>1 :
+                self.eval(test_dataloader, self.global_step, name="test/")
+                self.fid_eval(val_data=test_dataloader, step=self.global_step, name="test/")
+
             try :
                 x = next(iterator)[0].to(self.cfg.trainer.device)
             except StopIteration:
@@ -125,6 +136,10 @@ class AbstractTrainer:
                 x = next(iterator)[0].to(self.cfg.trainer.device)
             x = x.reshape(x.shape[0], self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size)
 
+            # Save images
+            if self.global_step % self.cfg.trainer.save_images_every == 0 or self.global_step<3:
+                self.draw_samples(x, self.global_step)
+                self.plot_latent(dataloader=train_dataloader,step = self.global_step)
 
             if self.global_step < self.n_iter_pretrain_encoder:
                 dic_loss = self.train_step_only_encoder(x, self.global_step)
@@ -139,26 +154,11 @@ class AbstractTrainer:
             if self.global_step % self.cfg.trainer.log_every == 0:
                 log(self.global_step, dic_loss, logger=self.logger)
 
-            # Save images
-            if self.global_step % self.cfg.trainer.save_images_every == 0:
-                self.draw_samples(x, self.global_step)
-                self.plot_latent(dataloader=train_dataloader,step = self.global_step)
+           
 
             # Save models :
             if self.global_step % self.cfg.trainer.save_every == 0 and self.global_step>1:
                 self.save_model(name=str(self.global_step))
-
-            # Eval
-            if (self.global_step) % self.cfg.trainer.val_every == 0 and val_dataloader is not None:
-                self.eval(val_dataloader, self.global_step)
-                self.fid_eval(val_data=test_dataloader, step=self.global_step, name="val/")
-
-
-                
-            # Test
-            if (self.global_step)%self.cfg.trainer.test_every == 0 and test_dataloader is not None and self.global_step>1 :
-                self.eval(test_dataloader, self.global_step, name="test/")
-                self.fid_eval(val_data=test_dataloader, step=self.global_step, name="test/")
 
 
 
@@ -555,17 +555,19 @@ class AbstractTrainer:
             pass
         else :
             print("Plotting latent in 2D to see the distribution")
-            batch = next(iter(dataloader))
+            iterator = iter(dataloader)
+            batch = next(iterator)
             data = batch[0].to(self.cfg.trainer.device)
             targets = batch[1].to(self.cfg.trainer.device)
             while len(data)<5000:
-                batch = next(iter(dataloader))
+                batch = next(iterator)
                 data = torch.cat([data,batch[0].to(self.cfg.trainer.device)], dim=0)
                 targets = torch.cat([targets, batch[1].to(self.cfg.trainer.device)], dim=0)
             data = data[:5000]
             targets = targets[:5000]
             len_samples = min(5000, data.shape[0])
             params = self.encoder(data[:len_samples])
+            # no_treatment_params = params[:,:2]
             mu_q, log_var_q = self.encoder.latent_distribution.get_plots(params)
             samples_approx_post = self.encoder.latent_distribution.r_sample(params, n_samples=10).reshape(10*len_samples, self.cfg.trainer.nz)
 
@@ -586,6 +588,8 @@ class AbstractTrainer:
             liste_samples = [z_e_0, z_e_k, mu_q, samples_approx_post, z_g_k]
             liste_samples_name = ["Latent Base Distribution", "Latent Prior", "Latent Approximate Posterior Mu ", "Latent Approximate Posterior Sample", "Latent Posterior"]
 
+            # liste_samples.append(no_treatment_params)
+            # liste_samples_name.append("Latent Approximate Posterior Mu No Treatment")
 
             if hasattr(self, "reverse_encoder"):
                 params_reverse = self.reverse_encoder(data[:len_samples])
@@ -611,11 +615,11 @@ class AbstractTrainer:
 
     def plot_samples_2d(self, samples, min_x, max_x, liste_samples_name, step, params = None, params_reverse=None, targets = None):
         energy_list_small_scale, energy_list_names, x, y = self.get_all_energies(samples[0], min_x=min_x, max_x=max_x, params = params, params_reverse = params_reverse)
-        for sample, samples_names in zip(samples, liste_samples_name):
+        for sample, samples_name in zip(samples, liste_samples_name):
                 
             samples_aux = self.cut_samples(sample, min_x=min_x, max_x=max_x)
-            title = samples_names+f" [{str(min_x)}, {str(max_x)}]"
-            if targets is not None and "posterior" in samples_names.lower():
+            title = samples_name+f" [{str(min_x)}, {str(max_x)}]"
+            if targets is not None and "posterior" in samples_name.lower():
                 plot_contour(samples_aux, energy_list_small_scale, energy_list_names, x, y, step=step, title=title, logger=self.logger, targets=targets)
             else :
                 plot_contour(samples_aux, energy_list_small_scale, energy_list_names, x, y, step=step, title=title, logger=self.logger,)
