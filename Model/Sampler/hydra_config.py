@@ -40,6 +40,21 @@ class BaseLangevinSampler(BaseSampler):
     clip_grad_norm: Optional[float] = None
     hyperspherical: Optional[bool] = False
 
+@dataclass
+class BaseMalaSampler(BaseLangevinSampler):
+    sampler_name: str = "mala"
+    num_chains_test: int = MISSING # In training, defined by the batch size
+    num_samples: int = MISSING
+    thinning: int = MISSING
+    warmup_steps: int = MISSING
+    step_size: float = MISSING
+    clamp_min_data: Optional[float] = None
+    clamp_max_data: Optional[float] = None
+    clamp_min_grad: Optional[float] = None
+    clamp_max_grad: Optional[float] = None
+    clip_data_norm : Optional[float] = None
+    clip_grad_norm: Optional[float] = None
+    hyperspherical: Optional[bool] = False
 
 @dataclass
 class BaseNutsSampler(BaseSampler):
@@ -66,8 +81,10 @@ def store_base_langevin_sampler(cs: ConfigStore):
     cs.store(group="sampler_prior", name="base_sampler", node=BaseSampler)
     cs.store(group="sampler_prior", name="base_langevin_sampler", node=BaseLangevinSampler)
     cs.store(group="sampler_prior", name="base_nuts_sampler", node=BaseNutsSampler)
+    cs.store(group="sampler_prior", name="base_mala_sampler", node=BaseMalaSampler)
 
     cs.store(group="sampler_posterior", name="base_sampler", node=BaseSampler)
     cs.store(group="sampler_posterior", name="base_langevin_sampler", node=BaseLangevinSampler)
     cs.store(group="sampler_posterior", name="base_nuts_sampler", node=BaseNutsSampler)
+    cs.store(group="sampler_posterior", name="base_mala_sampler", node=BaseMalaSampler)
 
