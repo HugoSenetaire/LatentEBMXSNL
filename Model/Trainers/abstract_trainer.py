@@ -137,7 +137,7 @@ class AbstractTrainer:
             x = x.reshape(x.shape[0], self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size)
 
             # Save images
-            if self.global_step % self.cfg.trainer.save_images_every == 0 or self.global_step<3:
+            if self.global_step % self.cfg.trainer.save_images_every == 0 :
                 self.draw_samples(x, self.global_step)
                 self.plot_latent(dataloader=train_dataloader,step = self.global_step)
 
@@ -680,8 +680,7 @@ class AbstractTrainer:
         energy_list = [energy_base_dist, energy_prior, energy_extra_prior, just_energy]
         energy_list_names = ["Base Distribution", "EBM Prior", "Extra Prior", "Just EBM"]
         # if params is not None and self.cfg.encoder.latent_distribution_name == 'gaussian' :
-        if params is not None and self.cfg.encoder.latent_distribution_name != 'uniform' and "mises" not in self.cfg.encoder.latent_distribution_name:
-        # == "gaussian": # Does not work with uniform distribution
+        if params is not None and self.cfg.encoder.latent_distribution_name != 'uniform' and "mises" not in self.cfg.encoder.latent_distribution_name and "symmetrical" not in self.cfg.encoder.latent_distribution_name :
             dic_params, _ = self.encoder.latent_distribution.get_params(params)
             dist_posterior = self.encoder.latent_distribution.get_distribution(params, dic_params=dic_params)
             aggregate = AggregatePosterior(dist_posterior, params.shape[0], device = device)
@@ -689,7 +688,7 @@ class AbstractTrainer:
             energy_list.append(aggregate_energy)
             energy_list_names.append("Aggregate Posterior")
             
-        if params_reverse is not None and self.cfg.encoder.latent_distribution_name != 'uniform' and "mises" not in self.cfg.encoder.latent_distribution_name:
+        if params_reverse is not None and self.cfg.encoder.latent_distribution_name != 'uniform' and "mises" not in self.cfg.encoder.latent_distribution_name and "symmetrical" not in self.cfg.encoder.latent_distribution_name:
         # if params_reverse is not None and self.cfg.encoder.latent_distribution_name == 'gaussian':
             dic_params, _ = self.reverse_encoder.latent_distribution.get_params(params)
             dist_posterior = self.reverse_encoder.latent_distribution.get_distribution(params, dic_params=dic_params)
