@@ -3,18 +3,20 @@ defaults:
 
 trainer_name : "prior_trainer"
 
-nz : 100
+nz : 16
 
 proposal_mean: 0.0
 proposal_std: 1.0
 
-n_iter: 100000
+
+n_iter: 300000
+
 
 log_every: 100
-save_every: 1000
-save_images_every: 1000
-val_every: 1000
-test_every: 10000
+save_every: 10000
+save_images_every: 10000
+val_every: 5000
+test_every: 20000
 
 multiple_sample_val_SNIS:  10
 multiple_sample_val: 10

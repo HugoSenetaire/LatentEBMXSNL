@@ -20,16 +20,16 @@ class BaseTrainerConfig:
     proposal_std: Optional[float] = 1.0
 
     # Iteration for training
-    n_iter: int = 100000
-    n_iter_pretrain: int = 20000
+    n_iter: int = 300000
+    n_iter_pretrain: int = 100000
     n_iter_pretrain_encoder: int = 0
 
     #Save utils
     log_every: int = 100
-    save_every: int = 1000
-    save_images_every: int = 1000
-    val_every: int = 1000
-    test_every: int = 10000
+    save_every: int = 10000
+    save_images_every: int = 5000
+    val_every: int = 5000
+    test_every: int = 20000
 
     # Validation parameters :
     multiple_sample_val_SNIS: int = 10

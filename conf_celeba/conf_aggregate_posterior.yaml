@@ -1,6 +1,6 @@
 defaults:
   - base_config
-  - dataset : binary_celeba
+  - dataset : celeba
   - encoder : conv_celeba
   - energy : energy_celeba
   - generator: conv_celeba
