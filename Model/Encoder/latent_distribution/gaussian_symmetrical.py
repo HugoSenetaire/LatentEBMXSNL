@@ -88,7 +88,6 @@ class GaussiansymmetricalPosterior(AbstractLatentDistribution):
         else:
             mu, log_var = dic_params["mu"], dic_params["log_var"]
         samples = self.r_sample(params, n_samples=n_samples, dic_params=dic_params)
-        print(samples.shape)
         return -self.log_prob(params, samples, dic_params=dic_params).reshape(-1, params.shape[0]).mean(0)
 
     def log_prob(self, params, z_q, dic_params = None):
