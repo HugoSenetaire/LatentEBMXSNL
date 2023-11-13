@@ -42,7 +42,7 @@ class GaussiansymmetricalPosterior(AbstractLatentDistribution):
         log_var_expanded = log_var.unsqueeze(0).expand(n_samples, *log_var.shape)
         epsilon = torch.randn_like(mu_expanded)
         shape = (mu.shape[0], *[1 for _ in range(len(mu.shape) - 1)])
-        bernoulli = torch.bernoulli(torch.ones(shape) * 0.5).expand_as(mu_expanded)
+        bernoulli = torch.bernoulli(torch.ones(shape) * 0.5).expand_as(mu_expanded).to(mu.device)
         return (2 * bernoulli - 1) * mu_expanded + torch.exp(log_var_expanded / 2) * epsilon
 
     def get_distribution(self, params, dic_params=None):
@@ -55,7 +55,7 @@ class GaussiansymmetricalPosterior(AbstractLatentDistribution):
         log_var_total = torch.cat([log_var.unsqueeze(1), log_var.unsqueeze(1)], dim=1)
         encoder_distrib = torch.distributions.Normal(mu_total, torch.exp(log_var_total / 2))
 
-        mix_dist = torch.distributions.categorical.Categorical(torch.full((mu.shape[0],2),0.5))
+        mix_dist = torch.distributions.categorical.Categorical(torch.full((mu.shape[0],2),0.5).to(mu.device))
         comp_dist = torch.distributions.Independent(encoder_distrib, 1)
         gmm = torch.distributions.mixture_same_family.MixtureSameFamily(mix_dist, comp_dist)
 
@@ -88,10 +88,11 @@ class GaussiansymmetricalPosterior(AbstractLatentDistribution):
         else:
             mu, log_var = dic_params["mu"], dic_params["log_var"]
         samples = self.r_sample(params, n_samples=n_samples, dic_params=dic_params)
+        print(samples.shape)
         return -self.log_prob(params, samples, dic_params=dic_params).reshape(-1, params.shape[0]).mean(0)
 
     def log_prob(self, params, z_q, dic_params = None):
-        if z_q.shape[0] == params.shape[0]:
+        if z_q.shape[0] == params.shape[0] and len(z_q.shape) == len(params.shape):
             return self.get_distribution(params, dic_params=dic_params).log_prob(z_q).reshape(params.shape[0],)
         else :
             z_q = z_q.reshape(-1, params.shape[0], self.cfg.trainer.nz)

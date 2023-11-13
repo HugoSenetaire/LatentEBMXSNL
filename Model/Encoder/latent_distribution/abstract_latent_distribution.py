@@ -50,7 +50,7 @@ class AbstractLatentDistribution(nn.Module):
         return samples
 
     def log_prob(self, params, z_q, dic_params = None):
-        if z_q.shape[0] == params.shape[0]:
+        if z_q.shape[0] == params.shape[0] and len(z_q.shape) == len(params.shape):
             return self.get_distribution(params, dic_params=dic_params).log_prob(z_q).reshape(params.shape[0], self.cfg.trainer.nz).sum(1)
         else :
             z_q = z_q.reshape(-1, params.shape[0], self.cfg.trainer.nz)
