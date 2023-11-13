@@ -47,11 +47,11 @@ class AbstractTrainer:
             cfg.trainer.log_dir = os.path.join(cfg.machine.root, "logs",)
             print("Setting log dir to " + cfg.trainer.log_dir)
 
-        self.save_dir = os.path.join(cfg.trainer.log_dir, cfg.trainer.trainer_name + "_" + cfg.prior.prior_name + "_" + cfg.encoder.latent_distribution_name + time.strftime("%Y%m%d-%H%M%S"))
+        self.save_dir = os.path.join(os.path.join(cfg.trainer.log_dir,cfg.dataset.dataset_name, str(cfg.trainer.nz)), cfg.trainer.trainer_name + "_" + cfg.prior.prior_name + "_" + cfg.encoder.latent_distribution_name + time.strftime("%Y%m%d-%H%M%S"))
         if not os.path.exists(self.save_dir):
             os.makedirs(self.save_dir)
         self.logger = wandb.init(
-            project="LatentEBM_{}_{}_v2".format(cfg.dataset.dataset_name,str(cfg.trainer.nz)),
+            project="LatentEBM_{}_{}_v3".format(cfg.dataset.dataset_name,str(cfg.trainer.nz)),
             config=OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True),
             dir=cfg.trainer.log_dir,
             name= cfg.trainer.trainer_name + "_" + cfg.prior.prior_name + "_" + cfg.encoder.latent_distribution_name + time.strftime("%Y%m%d-%H%M%S"),
