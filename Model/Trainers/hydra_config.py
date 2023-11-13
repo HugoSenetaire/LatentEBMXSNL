@@ -53,8 +53,8 @@ class BaseTrainerConfig:
     empirical_kl : bool = False
     empirical_entropy : bool = False
 
-    use_reverse : bool = True # Use reverse KL for the approximate posterior in the no cd trick
-
+    use_reverse : bool = False # Use reverse KL for the approximate posterior in the no approx posterior mthod
+    forward_posterior: bool = False # Use forward KL for the approximate posterior in the no approx posterior mthod
     device : str = "cuda"
 
 
