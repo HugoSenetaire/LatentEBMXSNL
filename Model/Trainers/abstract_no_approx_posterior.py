@@ -80,7 +80,7 @@ class NoApproxPosterior(AbstractTrainer):
 
 
     def train_approx_posterior(self, x, step):
-        if not self.forward_posterior:
+        if not self.cfg.trainer.forward_posterior:
             return {}
         dic_feedback = {}
         # Train the encoder to go to regular ebm, not really the same thing, it's just so that I get better approximation, could do reverse KL ?
