@@ -14,9 +14,15 @@ from ..Utils import AggregatePosterior
 
 
 class SNELBO_Aggregate(AbstractTrainer):
-    def __init__(self, cfg, ):
-        super().__init__(cfg, )
+    def __init__(
+        self,
+        cfg,
+        test = False,
+        path_weights = None,
+    ) -> None:
+        super().__init__(cfg, test=test, path_weights=path_weights)
         self.detach_approximate_posterior = cfg.trainer.detach_approximate_posterior
+        
 
     def train_step(self, x, step):
         dic_feedback = {}

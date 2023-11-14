@@ -11,9 +11,14 @@ from ..Utils.log_utils import log
 
 
 class NoApproxPosterior(AbstractTrainer):
-    def __init__(self, cfg) -> None:
-        super().__init__(cfg)
+    def __init__(
+        self,
+        cfg,
+        test = False,
+        path_weights = None,
+    ) -> None:
         self.reverse_encoder = AbstractEncoder(cfg, cfg.trainer.nz, cfg.dataset.nc, reverse=True)
+        super().__init__(cfg, test=test, path_weights=path_weights)
         self.compile_reverse()
         self.use_reverse = self.cfg.trainer.use_reverse
 
@@ -269,6 +274,45 @@ class NoApproxPosterior(AbstractTrainer):
             log(step, total_dic_feedback, logger=self.logger, name=name)
 
 
+    def train_for_eval(self, nb_iter, train_dataloader, val_dataloader, test_dataloader, step):
+        iterator = iter(train_dataloader)
+        for step in range(nb_iter):
+            try :
+                x = next(iterator)[0].to(self.cfg.trainer.device)
+            except StopIteration:
+                self.sch_encoder.step()
+                self.sch_energy.step()
+                self.sch_generator.step()
+                self.sch_prior.step()
+                iterator = iter(train_dataloader)
+                x = next(iterator)[0].to(self.cfg.trainer.device)
+            x = x.reshape(x.shape[0], self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size)
 
+            dic_log = self.train_step_for_eval(x, step)
+            if step % self.cfg.trainer.log_interval == 0:
+                log(step, dic_log, logger=self.logger, name="train_for_eval/")
+
+
+
+    def train_step_for_eval(self, x, step):
+        z_e_0, z_g_0 = self.prior.sample(x.shape[0]), self.prior.sample(x.shape[0])
+        z_e_k = self.sampler_prior(z_e_0, self.energy, self.prior,)
+        z_g_k = self.sampler_posterior(z_g_0, x, self.generator, self.energy, self.prior,)
+
+        z_e_0_norm = z_e_0.detach().norm(dim=1).mean()
+        z_e_k_norm = z_e_k.detach().norm(dim=1).mean()
+        z_g_k_norm = z_g_k.detach().norm(dim=1).mean()
+        dic_total = {}
+        dic_total.update({
+            "z_e_0_norm": z_e_0_norm,
+            "z_e_k_norm": z_e_k_norm,
+            "z_g_k_norm": z_g_k_norm,
+            "lr_e": self.opt_energy.param_groups[0]["lr"],
+            "lr_g": self.opt_generator.param_groups[0]["lr"],
+        })
+
+        dic_total.update(self.train_approx_posterior(x, step))
+        dic_total.update(self.train_approx_posterior_reverse(x, z_g_k, step))
+        return dic_total
 
 

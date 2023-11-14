@@ -9,9 +9,13 @@ from .abstract_no_approx_posterior import NoApproxPosterior
 
 
 class ContrastiveDivergenceLogTrick(NoApproxPosterior):
-    def __init__(self, cfg,):
-        super().__init__(cfg,)
-
+    def __init__(
+        self,
+        cfg,
+        test = False,
+        path_weights = None,
+        ) -> None:
+        super().__init__(cfg, test=test, path_weights=path_weights)
 
 
     def train_step(self, x, step):

@@ -6,6 +6,8 @@ import time
 import wandb
 import os
 import numpy as np
+import re
+import pickle 
 
 from omegaconf import OmegaConf
 
@@ -26,6 +28,9 @@ class AbstractTrainer:
     def __init__(
         self,
         cfg,
+        test = False,
+        path_weights = None,
+        load_iter=None,
     ) -> None:
 
         self.cfg = cfg
@@ -47,15 +52,27 @@ class AbstractTrainer:
         if cfg.trainer.log_dir is None:
             cfg.trainer.log_dir = os.path.join(cfg.machine.root, "logs",)
             print("Setting log dir to " + cfg.trainer.log_dir)
+        
 
-        self.save_dir = os.path.join(os.path.join(cfg.trainer.log_dir,cfg.dataset.dataset_name, str(cfg.trainer.nz)), cfg.trainer.trainer_name + "_" + cfg.prior.prior_name + "_" + cfg.encoder.latent_distribution_name + time.strftime("%Y%m%d-%H%M%S"))
+        if test :
+            project = "Test_LatentEBM_{}_{}_v3".format(cfg.dataset.dataset_name,str(cfg.trainer.nz))
+            name = path_weights.split("/")[-1]
+            assert path_weights is not None, "You need to specify a path to load the weights"
+            self.path_weights = path_weights
+            self.load_model(path_weights, load_iter=load_iter)
+        else :
+            project = "LatentEBM_{}_{}_v3".format(cfg.dataset.dataset_name,str(cfg.trainer.nz))
+            name = cfg.trainer.trainer_name + "_" + cfg.prior.prior_name + "_" + cfg.encoder.latent_distribution_name + time.strftime("%Y%m%d-%H%M%S")
+        
+        self.save_dir = os.path.join(os.path.join(cfg.trainer.log_dir, project), name)
         if not os.path.exists(self.save_dir):
             os.makedirs(self.save_dir)
+        pickle.dump(cfg, open(os.path.join(self.save_dir, "cfg.pkl"), "wb"))
         self.logger = wandb.init(
-            project="LatentEBM_{}_{}_v3".format(cfg.dataset.dataset_name,str(cfg.trainer.nz)),
+            project=project,
             config=OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True),
             dir=cfg.trainer.log_dir,
-            name= cfg.trainer.trainer_name + "_" + cfg.prior.prior_name + "_" + cfg.encoder.latent_distribution_name + time.strftime("%Y%m%d-%H%M%S"),
+            name= name,
         )
         self.n_iter = cfg.trainer.n_iter
         self.n_iter_pretrain = cfg.trainer.n_iter_pretrain
@@ -63,7 +80,7 @@ class AbstractTrainer:
         self.compile()
         
     def get_fixed_x(self, train_dataloader, val_dataloader, test_dataloader):
-        max_batch = self.cfg.sampler_posterior.num_chains_test
+        max_batch = max(self.cfg.sampler_posterior.num_chains_test, 256)
         if test_dataloader is not None :
             current_data_loader = test_dataloader
         elif val_dataloader is not None:
@@ -84,11 +101,21 @@ class AbstractTrainer:
         torch.save(self.energy.state_dict(), os.path.join(self.save_dir, "energy_{}.pt".format(name)))
         torch.save(self.extra_prior.state_dict(), os.path.join(self.save_dir, "extra_prior_{}.pt".format(name)))
 
-    def load_model(self, name=""):
-        self.generator.load_state_dict(torch.load(os.path.join(self.save_dir, "generator_{}.pt".format(name))))
-        self.encoder.load_state_dict(torch.load(os.path.join(self.save_dir, "encoder_{}.pt".format(name))))
-        self.energy.load_state_dict(torch.load(os.path.join(self.save_dir, "energy_{}.pt".format(name))))
-        self.extra_prior.load_state_dict(torch.load(os.path.join(self.save_dir, "extra_prior_{}.pt".format(name))))
+    def load_model(self, path_weights, load_iter=None):
+        set_index = set()
+        for path in os.listdir(path_weights):
+            index = re.findall('^generator_(\d+).pt$', path)
+            if len(index) > 0:
+                set_index.update(index)
+        if load_iter is None:
+            load_iter = max(set_index)
+        else :
+            assert load_iter in set_index, "The index {} is not in the set of index {}".format(load_iter, set_index)
+        
+        self.generator.load_state_dict(torch.load(os.path.join(path_weights, "generator_{}.pt".format(load_iter))))
+        self.encoder.load_state_dict(torch.load(os.path.join(path_weights, "encoder_{}.pt".format(load_iter))))
+        self.energy.load_state_dict(torch.load(os.path.join(path_weights, "energy_{}.pt".format(load_iter))))
+        self.extra_prior.load_state_dict(torch.load(os.path.join(path_weights, "extra_prior_{}.pt".format(load_iter))))
         self.compile()
 
     def compile(self):
@@ -545,8 +572,14 @@ class AbstractTrainer:
         batch_save_prior = self.cfg.sampler_prior.num_chains_test * self.cfg.sampler_prior.num_samples
         batch_save_posterior = self.cfg.sampler_posterior.num_chains_test * self.cfg.sampler_posterior.num_samples
         z_e_0, z_g_0 = self.prior.sample(batch_save_bast_dist), self.prior.sample(batch_save_bast_dist)
-        z_e_k = self.sampler_prior(z_e_0[:self.cfg.sampler_prior.num_chains_test], self.energy, self.prior,)
-        z_g_k = self.sampler_posterior(z_g_0[:self.cfg.sampler_posterior.num_chains_test], self.x_fixed, self.generator, self.energy, self.prior,)
+        z_e_k = self.sampler_prior(z_e_0[:self.cfg.sampler_prior.num_chains_test],
+                                    self.energy,
+                                    self.prior,)
+        z_g_k = self.sampler_posterior(z_g_0[:self.cfg.sampler_posterior.num_chains_test],
+                                    self.x_fixed[:self.cfg.sampler_posterior.num_chains_test],
+                                    self.generator,
+                                    self.energy,
+                                    self.prior,)
         # z_e_k, z_grad_norm = self.sampler_prior(z_e_0, self.energy, self.prior,)
         # z_g_k, z_g_grad_norm, z_e_grad_norm = self.sampler_posterior(z_g_0,x[:batch_save], self.generator, self.energy, self.prior,)
 
@@ -564,7 +597,7 @@ class AbstractTrainer:
             draw(mu_posterior.reshape(batch_save_posterior, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="MeanEBMPosterior")
 
 
-            param = self.encoder(x[:batch_save_posterior])
+            param = self.encoder(self.x_fixed[:batch_save_posterior])
             sample_mean, sample_std = self.encoder.latent_distribution.get_plots(param,)
 
             x_reconstruction, mu_reconstruction = self.generator.sample(sample_mean, return_mean=True)
