@@ -269,18 +269,31 @@ class AbstractTrainer:
         with torch.no_grad():
             batch_size_val = self.cfg.dataset.batch_size_val
             sampled = 0
-            log_partition_estimate = 0
+            log_partition_estimate = None
             total_energy = 0
             nb_sample_partition = getattr(self.cfg.trainer, "nb_sample_partition_estimate_{}".format(name[:-1]))
             for k in range(int(np.ceil(nb_sample_partition/batch_size_val))):
-                z_e_0 = self.prior.sample(nb_sample_partition,)[:nb_sample_partition-sampled]
-                sampled+=z_e_0.shape[0]
+                if self.proposal is not None:
+                    z_e_0 = self.proposal.sample(nb_sample_partition,)[:nb_sample_partition-sampled]
+                else :
+                    z_e_0 = self.prior.sample(nb_sample_partition,)[:nb_sample_partition-sampled]
+                sampled += z_e_0.shape[0]
                 current_energy = self.energy(z_e_0).flatten(1).sum(1)
                 total_energy += self.energy(z_e_0).sum(0)
-                log_partition_estimate += torch.logsumexp(-current_energy,0) 
+                if self.proposal is not None:
+                    current_energy = current_energy + self.proposal.log_prob(z_e_0).reshape(z_e_0.shape[0]) - self.prior.log_prob(z_e_0).reshape(z_e_0.shape[0])
+
+                if log_partition_estimate is None :
+                    log_partition_estimate = torch.logsumexp(-current_energy,0)
+                else :
+                    to_sum = torch.cat([log_partition_estimate.unsqueeze(0), -current_energy], dim=0)
+                    log_partition_estimate = torch.logsumexp(to_sum,0)
             log_partition_estimate = log_partition_estimate - math.log(sampled)
             log(step, {"log_z":log_partition_estimate.item()}, logger=self.logger, name=name)
-            log(step, {"energy_base_dist":(total_energy/sampled).item()}, logger=self.logger, name=name)
+            if self.proposal is not None :
+                log(step, {"energy_proposal": (total_energy/sampled).item()}, logger=self.logger, name=name)
+            else :
+                log(step, {"energy_base_dist":(total_energy/sampled).item()}, logger=self.logger, name=name)
         return log_partition_estimate
 
 
