@@ -53,7 +53,15 @@ class SNELBO(AbstractTrainer):
         base_dist_z_approximate = self.prior.log_prob(z_q).reshape(self.cfg.trainer.multiple_sample_train,x.shape[0],).mean(dim=0)
         base_dist_z_base_dist = self.prior.log_prob(z_e_0).reshape(x.shape[0],)
 
-        log_partition_estimate = torch.logsumexp(-energy_base_dist,0) - math.log(energy_base_dist.shape[0])
+        if self.proposal is not None :
+            z_proposal = self.proposal.sample(x.shape[0])
+            proposal_z_proposal = self.proposal.log_prob(z_proposal).reshape(x.shape[0],)
+            proposal_z_base_dist = self.proposal.log_prob(z_e_0).reshape(x.shape[0],)
+            base_dist_z_proposal = self.prior.log_prob(z_proposal).reshape(x.shape[0],)
+            energy_z_proposal = self.energy(z_proposal).reshape(x.shape[0],)
+            log_partition_estimate = torch.logsumexp(-energy_z_proposal + base_dist_z_proposal - proposal_z_proposal,0) - math.log(energy_z_proposal.shape[0])
+        else :
+            log_partition_estimate = torch.logsumexp(-energy_base_dist,0) - math.log(energy_base_dist.shape[0])
         loss_ebm = (energy_approximate).mean() + log_partition_estimate.exp() -1
         
         loss_total = loss_g + KL_loss + loss_ebm
