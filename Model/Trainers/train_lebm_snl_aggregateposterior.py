@@ -62,7 +62,7 @@ class SNELBO_Aggregate(AbstractTrainer):
         aggregate_z_aggregate = aggregate.log_prob(z_agg).reshape(x.shape[0])
 
 
-        log_partition_estimate = torch.logsumexp(-energy_aggregate,0) - math.log(energy_aggregate.shape[0])
+        log_partition_estimate = torch.logsumexp(-energy_aggregate + base_dist_z_aggregate - aggregate_z_aggregate.detach(),0) - math.log(energy_aggregate.shape[0])
         loss_ebm = (energy_approximate).mean() + log_partition_estimate.exp() -1
 
         loss_total = loss_g + KL_loss + loss_ebm
