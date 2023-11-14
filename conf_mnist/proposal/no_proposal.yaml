@@ -1,0 +1,3 @@
+defaults :
+  - base_no_proposal
+proposal_name : null

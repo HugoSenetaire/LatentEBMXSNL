@@ -1,0 +1,6 @@
+defaults :
+  - base_student_proposal
+proposal_name : student
+df : 1.0
+mu : 0.0
+sigma : 1.0

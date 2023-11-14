@@ -4,7 +4,8 @@ defaults:
   - encoder : conv_celeba_vonmisesfischer
   - energy : energy_celeba
   - generator: conv_celeba
-  - prior : hyperspherical
+  - proposal : no_proposal
+  - prior :  hyperspherical
   - extra_prior : hyperspherical
   - regularization : no_reg
   - regularization_encoder : no_reg

@@ -4,7 +4,8 @@ defaults:
   - encoder : conv_mnist
   - energy : energy_mnist
   - generator: conv_mnist
-  - prior : gaussian
+  - proposal : no_proposal
+  - prior :  gaussian
   - extra_prior : gaussian
   - regularization : no_reg  
   - regularization_encoder : no_reg

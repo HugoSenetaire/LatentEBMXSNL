@@ -4,7 +4,8 @@ defaults:
   - encoder : conv_mnist_uniform
   - energy : energy_mnist
   - generator: conv_mnist
-  - prior : uniform
+  - proposal : no_proposal
+  - prior :  uniform
   - extra_prior : uniform
   - regularization : no_reg
   - regularization_encoder : no_reg

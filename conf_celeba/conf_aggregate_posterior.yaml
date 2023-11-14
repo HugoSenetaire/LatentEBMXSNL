@@ -4,7 +4,8 @@ defaults:
   - encoder : conv_celeba
   - energy : energy_celeba
   - generator: conv_celeba
-  - prior : gaussian
+  - proposal : no_proposal
+  - prior :  gaussian
   - extra_prior : gaussian
   - regularization : no_reg  
   - regularization_encoder : no_reg

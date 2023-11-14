@@ -4,7 +4,8 @@ defaults:
   - encoder : conv_svhn
   - energy : energy_svhn
   - generator: conv_svhn
-  - prior : hyperspherical
+  - proposal : no_proposal
+  - prior :  hyperspherical
   - extra_prior : hyperspherical
   - regularization : no_reg
   - regularization_encoder : no_reg

@@ -4,7 +4,8 @@ defaults:
   - encoder : conv_mnist_vonmisesfischer
   - energy : energy_mnist
   - generator: conv_mnist
-  - prior : hyperspherical_uniform
+  - proposal : no_proposal
+  - prior :  hyperspherical_uniform
   - extra_prior : hyperspherical_uniform
   - regularization : no_reg
   - regularization_encoder : no_reg
