@@ -16,12 +16,13 @@ from omegaconf import OmegaConf
 import hydra_config
 
 
-root = "/scratch/hhjs/data"
 
 
-@hydra.main(version_base="1.1", config_path="conf_binary_mnist", config_name="conf",)
+
+
+@hydra.main(version_base="1.1", config_path="conf_mnist", config_name="conf",)
 def main(cfg):
-    device = "cuda" if t.cuda.is_available() else "cpu"
+    device = "cuda:0" if t.cuda.is_available() else "cpu"
     cfg.trainer.device = device
 
     data_train, data_val, data_test = get_dataset_and_loader(cfg, device)
