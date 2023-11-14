@@ -16,6 +16,7 @@ from ..Optim import get_optimizer, grad_clipping
 from ..Optim.Schedulers import get_scheduler
 from ..Prior import get_prior, get_extra_prior
 from ..Sampler import get_posterior_sampler, get_prior_sampler
+from ..ProposalDistribution import get_proposal
 from ..Utils.log_utils import log, draw, get_extremum, plot_contour
 from ..Utils.aggregate_posterior import AggregatePosterior
 from ..Utils.utils_fid.utils import calculate_activation, calculate_frechet_distance
@@ -33,15 +34,15 @@ class AbstractTrainer:
         self.energy = get_energy_network(cfg.energy.network_name, cfg.trainer.nz, cfg.energy.ndf)
         self.prior = get_prior(cfg.trainer.nz, cfg.prior).to(cfg.trainer.device)
         self.extra_prior = get_extra_prior(cfg.trainer.nz, cfg.extra_prior).to(cfg.trainer.device)
+        self.proposal = get_proposal(cfg.trainer.nz, cfg.proposal)
+        if self.proposal is not None :
+            self.proposal = self.proposal.to(cfg.trainer.device)
         self.encoder = AbstractEncoder(cfg, cfg.trainer.nz, cfg.dataset.nc).to(cfg.trainer.device)
 
         self.sampler_prior = get_prior_sampler(cfg.sampler_prior)
         self.sampler_posterior = get_posterior_sampler(cfg.sampler_posterior)
         self.mse = nn.MSELoss(reduction="sum")
         self.mse_test = nn.MSELoss(reduction='none')
-        self.proposal = torch.distributions.normal.Normal(
-            torch.tensor(cfg.trainer.proposal_mean, device=cfg.trainer.device, dtype=torch.float32),
-            torch.tensor(cfg.trainer.proposal_std, device=cfg.trainer.device, dtype=torch.float32),)
         self.log_var_p = torch.tensor(0, device=cfg.trainer.device, dtype=torch.float32)
         if cfg.trainer.log_dir is None:
             cfg.trainer.log_dir = os.path.join(cfg.machine.root, "logs",)
