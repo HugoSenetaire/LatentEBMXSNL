@@ -337,13 +337,6 @@ class AbstractTrainer:
                 print("z_q nan")
             x_hat = self.generator(z_q)
 
-
-            if hasattr(self.encoder.latent_distribution, "reverse"):
-                param_reverse = self.encoder.latent_distribution.reverse(param)
-                dic_param_reverse, dic_param_feedback_reverse = self.encoder.latent_distribution.get_params(param_reverse)
-                z_q_reverse = self.encoder.latent_distribution.r_sample(param_reverse, dic_params=dic_param_reverse).reshape(expanded_batch_size, self.cfg.trainer.nz)
-                x_hat_reverse = self.generator(z_q_reverse)
-
             # Reconstruction loss :
             loss_g = self.generator.get_loss(x_hat, x_expanded).reshape(multiple_sample_val_elbo,x.shape[0]).mean(dim=0)
             mse_loss = self.mse_test(x_hat, x_expanded).reshape(multiple_sample_val_elbo, x.shape[0], -1).sum(dim=2).mean(dim=0)
