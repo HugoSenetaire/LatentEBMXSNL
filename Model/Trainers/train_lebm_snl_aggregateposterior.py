@@ -19,8 +19,10 @@ class SNELBO_Aggregate(AbstractTrainer):
         cfg,
         test = False,
         path_weights = None,
+        load_iter=None,
+        special_name = None,
     ) -> None:
-        super().__init__(cfg, test=test, path_weights=path_weights)
+        super().__init__(cfg, test=test, path_weights=path_weights, load_iter=load_iter, special_name=special_name)
         self.detach_approximate_posterior = cfg.trainer.detach_approximate_posterior
         
 

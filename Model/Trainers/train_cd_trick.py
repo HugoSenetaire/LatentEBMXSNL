@@ -14,8 +14,10 @@ class ContrastiveDivergenceLogTrick(NoApproxPosterior):
         cfg,
         test = False,
         path_weights = None,
+        load_iter=None,
+        special_name = None,
         ) -> None:
-        super().__init__(cfg, test=test, path_weights=path_weights)
+        super().__init__(cfg, test=test, path_weights=path_weights, load_iter=load_iter, special_name=special_name)
 
 
     def train_step(self, x, step):
@@ -53,16 +55,24 @@ class ContrastiveDivergenceLogTrick(NoApproxPosterior):
         self.opt_energy.zero_grad()
         # en_pos, en_neg = E(z_g_k.detach()).mean(), E(z_e_k.detach()).mean()
         energy_posterior = self.energy(z_g_k.detach())
-        z_proposal = self.proposal.sample(z_g_k.shape)
+        if self.proposal is not None :
+            z_proposal = self.proposal.sample(z_g_k.shape[0])
+            proposal_z_proposal = self.proposal.log_prob(z_proposal)
+            proposal_z_posterior = self.proposal.log_prob(z_g_k)
+            proposal_z_base_dist = self.proposal.log_prob(z_e_0)
+
+        else :
+            z_proposal = self.prior.sample(z_g_k.shape[0])
+            proposal_z_proposal = self.prior.log_prob(z_proposal)
+            proposal_z_posterior = self.prior.log_prob(z_g_k)
+            proposal_z_base_dist = self.prior.log_prob(z_e_0)
+
         energy_proposal = self.energy(z_proposal.detach())
 
         base_dist_z_proposal = self.prior.log_prob(z_proposal)
         base_dist_z_posterior = self.prior.log_prob(z_g_k)
         base_dist_z_base_dist = self.prior.log_prob(z_e_0)
         
-        proposal_z_proposal = self.proposal.log_prob(z_proposal)
-        proposal_z_posterior = self.proposal.log_prob(z_g_k)
-        proposal_z_base_dist = self.proposal.log_prob(z_e_0)
 
 
         log_partition_estimate = torch.logsumexp(-energy_proposal,0) - math.log(energy_proposal.shape[0])

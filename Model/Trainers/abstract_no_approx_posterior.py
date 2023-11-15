@@ -16,9 +16,11 @@ class NoApproxPosterior(AbstractTrainer):
         cfg,
         test = False,
         path_weights = None,
+        load_iter=None,
+        special_name = None,
     ) -> None:
         self.reverse_encoder = AbstractEncoder(cfg, cfg.trainer.nz, cfg.dataset.nc, reverse=True)
-        super().__init__(cfg, test=test, path_weights=path_weights)
+        super().__init__(cfg, test=test, path_weights=path_weights, load_iter=load_iter, special_name=special_name)
         self.compile_reverse()
         self.use_reverse = self.cfg.trainer.use_reverse
 

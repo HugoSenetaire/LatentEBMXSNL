@@ -38,6 +38,7 @@ def main():
     parser = ArgumentParser()
     parser.add_argument("--config_path", default="conf_binary_mnist_2d")
     parser.add_argument("--config_name", default="conf_snelbo")
+    parser.add_argument("--special_name", type = str, default=None)
     parser.add_argument("--overrides", nargs='?', default=[])
     args = parser.parse_args()
     liste_overrides = [str(item) for item in args.overrides.split(",")]
@@ -51,7 +52,7 @@ def main():
 
     data_train, data_val, data_test = get_dataset_and_loader(cfg, device)
     total_train = get_trainer(cfg)
-    total_train = total_train(cfg)
+    total_train = total_train(cfg, test=False, path_weights=None, load_iter=None, special_name=args.special_name)
     total_train.train(train_dataloader=data_train, val_dataloader=data_val, test_dataloader=data_test)
 
 

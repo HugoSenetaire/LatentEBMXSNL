@@ -31,6 +31,7 @@ class AbstractTrainer:
         test = False,
         path_weights = None,
         load_iter=None,
+        special_name = None,
     ) -> None:
 
         self.cfg = cfg
@@ -55,14 +56,17 @@ class AbstractTrainer:
         
 
         if test :
-            project = "Test_LatentEBM_{}_{}_v3".format(cfg.dataset.dataset_name,str(cfg.trainer.nz))
+            project = "Test_LatentEBM_{}_{}_v5".format(cfg.dataset.dataset_name,str(cfg.trainer.nz))
             name = path_weights.split("/")[-1]
             assert path_weights is not None, "You need to specify a path to load the weights"
             self.path_weights = path_weights
             self.load_model(path_weights, load_iter=load_iter)
         else :
-            project = "LatentEBM_{}_{}_v3".format(cfg.dataset.dataset_name,str(cfg.trainer.nz))
-            name = cfg.trainer.trainer_name + "_" + cfg.prior.prior_name + "_" + cfg.encoder.latent_distribution_name + time.strftime("%Y%m%d-%H%M%S")
+            project = "LatentEBM_{}_{}_v5".format(cfg.dataset.dataset_name,str(cfg.trainer.nz))
+            if special_name is None :
+                name = cfg.trainer.trainer_name + "_" + cfg.prior.prior_name + "_" + cfg.encoder.latent_distribution_name + time.strftime("%Y%m%d-%H%M%S")
+            else :
+                name = special_name + time.strftime("%Y%m%d-%H%M%S")
         
         self.save_dir = os.path.join(os.path.join(cfg.trainer.log_dir, project), name)
         if not os.path.exists(self.save_dir):

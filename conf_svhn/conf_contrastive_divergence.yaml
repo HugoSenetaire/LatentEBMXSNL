@@ -1,7 +1,7 @@
 defaults:
   - base_config
   - dataset : svhn
-  - encoder : conv_celeba_symmetrical
+  - encoder : conv_svhn_symmetrical
   - energy : energy_svhn
   - generator: conv_svhn
   - proposal : no_proposal
