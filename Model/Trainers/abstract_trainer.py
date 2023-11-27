@@ -575,7 +575,28 @@ class AbstractTrainer:
         batch_save_bast_dist = self.cfg.sampler_prior.num_chains_test
         batch_save_prior = self.cfg.sampler_prior.num_chains_test * self.cfg.sampler_prior.num_samples
         batch_save_posterior = self.cfg.sampler_posterior.num_chains_test * self.cfg.sampler_posterior.num_samples
-        z_e_0, z_g_0 = self.prior.sample(batch_save_bast_dist), self.prior.sample(batch_save_bast_dist)
+        z_e_0, z_g_0 = self.prior.sample(batch_save_prior), self.prior.sample(batch_save_prior)
+
+
+
+        with torch.no_grad():
+            x_aux, mu_aux = self.generator.sample(z_g_0[:batch_save_prior], return_mean=True)
+            param_2 = self.encoder(x_aux.reshape(batch_save_prior, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size))
+            dic_param_2, _ = self.encoder.latent_distribution.get_params(param_2)
+            z_e_0_2 = self.encoder.latent_distribution.r_sample(param_2, n_samples = 1, dic_params=dic_param_2).reshape(batch_save_prior, self.cfg.trainer.nz)
+            z_e_0_2 = z_e_0_2.detach().clone()
+
+            z_from_x  = self.encoder(self.x_fixed[:batch_save_prior])
+            z_from_x = z_from_x.reshape(batch_save_prior, -1).chunk(2, dim=1)[0]
+            z_from_x = z_from_x.detach().clone()
+    
+        z_e_k_2 = self.sampler_prior(z_e_0_2[:self.cfg.sampler_prior.num_chains_test],
+                                    self.energy,
+                                    self.prior,)
+        z_from_x = self.sampler_prior(z_from_x[:self.cfg.sampler_prior.num_chains_test],
+                                    self.energy,
+                                    self.prior,)
+        
         z_e_k = self.sampler_prior(z_e_0[:self.cfg.sampler_prior.num_chains_test],
                                     self.energy,
                                     self.prior,)
@@ -589,13 +610,29 @@ class AbstractTrainer:
 
         with torch.no_grad():
             x_base, mu_base =self.generator.sample(z_e_0, return_mean=True)
-            draw(x_base.reshape(batch_save_bast_dist, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleBaseDistribution")
-            draw(mu_base.reshape(batch_save_bast_dist, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="MeanBaseDistribution")
+            draw(x_base.reshape(batch_save_prior, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleBaseDistribution")
+            draw(mu_base.reshape(batch_save_prior, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="MeanBaseDistribution")
         
+            x_base_2, mu_base_2 =self.generator.sample(z_e_0_2, return_mean=True)
+            draw(x_base_2.reshape(batch_save_prior, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleBaseDistributionReprojected")
+            draw(mu_base_2.reshape(batch_save_prior, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="MeanBaseDistributionReprojected")
+
             x_prior, mu_prior =self.generator.sample(z_e_k, return_mean=True)
             draw(x_prior.reshape(batch_save_prior, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleEBMPrior")
             draw(mu_prior.reshape(batch_save_prior, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="MeanEBMPrior")
     
+            x_prior_2, mu_prior_2 =self.generator.sample(z_e_k_2, return_mean=True)
+            draw(x_prior_2.reshape(batch_save_prior, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleEBMPriorReprojected")
+            draw(mu_prior_2.reshape(batch_save_prior, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="MeanEBMPriorReprojected")
+
+            x_from_x, mu_from_x =self.generator.sample(z_from_x, return_mean=True)
+            x_from_x = x_from_x.reshape(batch_save_prior, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size)
+            mu_from_x = mu_from_x.reshape(batch_save_prior, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size)
+            # x_from_x = torch.cat([self.x_fixed[:batch_save_prior],x_from_x[:-batch_save_prior],], dim=0)
+            # mu_from_x = torch.cat([self.x_fixed[:batch_save_prior], mu_from_x[:-batch_save_prior],], dim=0)
+            draw(x_from_x, step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name,aux_name="SampleEBMPriorFromX")
+            draw(mu_from_x, step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name,aux_name="MeanEBMPriorFromX")
+
             x_posterior, mu_posterior = self.generator.sample(z_g_k, return_mean=True)
             draw(x_posterior.reshape(batch_save_posterior, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="SampleEBMPosterior")
             draw(mu_posterior.reshape(batch_save_posterior, self.cfg.dataset.nc, self.cfg.dataset.img_size, self.cfg.dataset.img_size), step, self.logger, transform_back_name=self.cfg.dataset.transform_back_name, aux_name="MeanEBMPosterior")
