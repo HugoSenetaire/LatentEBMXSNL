@@ -3,6 +3,7 @@ from .abstract_latent_distribution import AbstractLatentDistribution
 import torch
 import torch.nn as nn
 import math 
+import omegaconf
 
 class GaussianPosterior(AbstractLatentDistribution):
     def __init__(self, cfg):
@@ -11,6 +12,10 @@ class GaussianPosterior(AbstractLatentDistribution):
         # self.mu = nn.Parameter(torch.zeros((self.cfg.trainer.nz), device=self.cfg.trainer.device), requires_grad=False)
         # self.std = nn.Parameter(torch.ones((self.cfg.trainer.nz), device=self.cfg.trainer.device), requires_grad=False)
         self.lambda_nz = lambda nz: 2*nz
+        try :
+            self.min_var_posterior = self.cfg.encoder.min_var_posterior
+        except omegaconf.errors.ConfigAttributeError:
+            self.min_var_posterior = None
 
     def get_params(self, param,):
         # dic_params["mu"], dic_params["log_var"] = param.chunk(2, dim=1)
@@ -18,9 +23,14 @@ class GaussianPosterior(AbstractLatentDistribution):
         dic_params_feedback = {}
         mu, log_var = param.chunk(2, dim=1)
         dic_params["mu"]= mu
+        if self.min_var_posterior is not None :
+            log_var = torch.cat([log_var.unsqueeze(0),
+                                torch.ones_like(log_var).unsqueeze(0)*math.log(self.min_var_posterior)], dim=0)
+            log_var = torch.logsumexp(log_var, dim=0)
         dic_params["log_var"]= log_var
         dic_params_feedback["||mu_encoder||"]= mu.norm(dim=1)
         dic_params_feedback["var_encoder_mean"]= log_var.exp().mean(dim=1)
+
         return dic_params, dic_params_feedback
 
     def r_sample(self, params, n_samples=1, dic_params = None, ):

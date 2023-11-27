@@ -14,6 +14,7 @@ class BaseEncoderConfig:
     activation_name: Optional[Union[str,None]] = None
     nef: int = MISSING
     latent_distribution_name: str = MISSING
+    min_var_posterior: Optional[Union[float, None]] = None
     forced_latent_min: Optional[Union[float, None]]= None # Just used in Uniform
     forced_latent_max: Optional[Union[float, None]]= None # Just used in Uniform
     sigmoid_version: Optional[bool] = False
