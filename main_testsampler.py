@@ -41,30 +41,37 @@ def main():
     parser.add_argument("--nb_iter", default = 20000)
     parser.add_argument("--weights_path", type=str, default=None)
     parser.add_argument('--iter', type=int, default=None)
-    parser.add_argument('--sampler_name', type=str, default='nuts')
-    parser.add_argument('--num_samples', type=int, default=8)
-    parser.add_argument('--thinning', type=int, default=1)
-    parser.add_argument('--warmup_steps', type=int, default=0)
-    parser.add_argument('--num_chains_test', type=int, default=8)
-    parser.add_argument('--multiprocess', type=str, default='Cheating')
+    parser.add_argument('--prior_sampler_name', type=str, default='nuts')
+    parser.add_argument('--prior_num_samples', type=int, default=8)
+    parser.add_argument('--prior_thinning', type=int, default=1)
+    parser.add_argument('--prior_warmup_steps', type=int, default=0)
+    parser.add_argument('--prior_num_chains_test', type=int, default=8)
+    parser.add_argument('--prior_multiprocess', type=str, default='Cheating')
+
+    parser.add_argument('--posterior_sampler_name', type=str, default='nuts')
+    parser.add_argument('--posterior_num_samples', type=int, default=8)
+    parser.add_argument('--posterior_thinning', type=int, default=2)
+    parser.add_argument('--posterior_warmup_steps', type=int, default=0)
+    parser.add_argument('--posterior_num_chains_test', type=int, default=8)
+    parser.add_argument('--posterior_multiprocess', type=str, default='Cheating')
 
     args = parser.parse_args()
 
     cfg = pickle.load(open(os.path.join(args.weights_path, 'cfg.pkl') , "rb"))
     cfg.trainer.use_reverse = True
     cfg.trainer.forward_posterior = True
-    cfg.sampler_prior.sampler_name = args.sampler_name
-    cfg.sampler_prior.num_samples = args.num_samples
-    cfg.sampler_prior.thinning = args.thinning
-    cfg.sampler_prior.warmup_steps = args.warmup_steps
-    cfg.sampler_prior.num_chains_test = args.num_chains_test
-    cfg.sampler_prior.multiprocess = args.multiprocess
-    cfg.sampler_posterior.sampler_name = args.sampler_name
-    cfg.sampler_posterior.num_samples = args.num_samples
-    cfg.sampler_posterior.thinning = args.thinning
-    cfg.sampler_posterior.warmup_steps = args.warmup_steps
-    cfg.sampler_posterior.num_chains_test = args.num_chains_test
-    cfg.sampler_posterior.multiprocess = args.multiprocess
+    cfg.sampler_prior.sampler_name = args.prior_sampler_name
+    cfg.sampler_prior.num_samples = args.prior_num_samples
+    cfg.sampler_prior.thinning = args.prior_thinning
+    cfg.sampler_prior.warmup_steps = args.prior_warmup_steps
+    cfg.sampler_prior.num_chains_test = args.prior_num_chains_test
+    cfg.sampler_prior.multiprocess = args.prior_multiprocess
+    cfg.sampler_posterior.sampler_name = args.posterior_sampler_name
+    cfg.sampler_posterior.num_samples = args.posterior_num_samples
+    cfg.sampler_posterior.thinning = args.posterior_thinning
+    cfg.sampler_posterior.warmup_steps = args.posterior_warmup_steps
+    cfg.sampler_posterior.num_chains_test = args.posterior_num_chains_test
+    cfg.sampler_posterior.multiprocess = args.posterior_multiprocess
     
 
     device = "cuda:0" if t.cuda.is_available() else "cpu"
