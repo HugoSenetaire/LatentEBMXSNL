@@ -29,7 +29,7 @@ def wgan_gradient_penalty(ebm, x, x_gen,):
 
     # Derivatives of the gradient close to 0 can cause problems because of
     # the square root, so manually calculate norm and add epsilon
-    gradients_norm = torch.sum(gradients ** 2, dim=1).mean()
+    gradients_norm = (torch.sum(gradients ** 2, dim=1).sqrt() - 1).pow(2).mean()
     return gradients_norm
 
 def regularization(ebm, x, x_gen, energy_data, energy_samples, cfg, logger, step):
