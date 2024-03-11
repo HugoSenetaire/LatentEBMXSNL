@@ -1,5 +1,0 @@
-defaults :
-  - base_gaussian
-prior_name : gaussian
-mu : 0.0
-sigma : 1.0

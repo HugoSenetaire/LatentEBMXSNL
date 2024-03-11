@@ -1,6 +1,0 @@
-defaults:
-  - base_encoder
-network_name: 'conv_celeba'
-activation_name: null
-nef: 128
-latent_distribution_name: 'gaussian_symmetrical'

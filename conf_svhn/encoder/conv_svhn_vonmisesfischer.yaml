@@ -1,7 +1,0 @@
-defaults:
-  - base_encoder
-network_name: 'conv_svhn'
-activation_name: null
-latent_distribution_name: 'von_mises_fischer'
-sigmoid_version: false
-nef: 16

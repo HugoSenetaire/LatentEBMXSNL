@@ -1,7 +1,0 @@
-defaults :
-  - base_langevin_sampler
-num_samples: 1
-num_chains_test: 64
-thinning: 1
-warmup_steps: 20
-step_size : 1e-1

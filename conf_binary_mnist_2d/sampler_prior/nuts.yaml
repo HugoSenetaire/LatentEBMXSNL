@@ -1,8 +1,0 @@
-defaults :
-  - base_nuts_sampler
-num_samples: 8
-thinning: 2
-warmup_steps: 0
-num_chains_test: 8
-multiprocess : 'Cheating'
-

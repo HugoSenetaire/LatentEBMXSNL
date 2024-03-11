@@ -46,7 +46,7 @@ def main():
     store_main()
     initialize_config_dir(config_dir=os.path.join(current_path, args.config_path), version_base="1.1", )
     cfg = compose(config_name=args.config_name, overrides=liste_overrides)
-
+    
     device = "cuda:0" if t.cuda.is_available() else "cpu"
     cfg.trainer.device = device
 

@@ -1,7 +1,0 @@
-defaults:
-  - base_encoder
-network_name: 'conv_mnist'
-activation_name: null
-latent_distribution_name: 'uniform'
-sigmoid_version: true
-nef: 16

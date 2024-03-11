@@ -1,4 +1,0 @@
-defaults :
-  - base_mixture_of_gaussian
-prior_name : mixture_of_gaussian
-nb_mixture : 10

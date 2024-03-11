@@ -1,7 +1,0 @@
-defaults:
-    - base_config_regularization    
-coef_regul: 0.0
-l2_grad: 1.0
-l2_output: 0.0
-l2_param: 0.0
-normalize_sample_grad: False

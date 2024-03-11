@@ -1,8 +1,0 @@
-defaults:
-  - base_dataset_name    
-dataset_name: MNIST
-batch_size: 100
-batch_size_val: 256
-nc : 1
-img_size : 28
-transform_back_name: "m1_1"

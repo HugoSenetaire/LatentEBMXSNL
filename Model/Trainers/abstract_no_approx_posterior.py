@@ -42,8 +42,8 @@ class NoApproxPosterior(AbstractTrainer):
         assert self.sch_reverse_encoder != self.sch_encoder
 
     def train_approx_posterior_reverse(self, x, z_g_k, step):
-        if not self.use_reverse:
-            return {}
+        # if not self.use_reverse:
+        return {}
         dic_feedback = {}
         self.opt_reverse_encoder.zero_grad()
         params_reverse = self.reverse_encoder(x)
@@ -87,8 +87,8 @@ class NoApproxPosterior(AbstractTrainer):
 
 
     def train_approx_posterior(self, x, step):
-        if not self.cfg.trainer.forward_posterior:
-            return {}
+    # if not self.cfg.trainer.forward_posterior:
+        return {}
         dic_feedback = {}
         # Train the encoder to go to regular ebm, not really the same thing, it's just so that I get better approximation, could do reverse KL ?
         self.opt_encoder.zero_grad()

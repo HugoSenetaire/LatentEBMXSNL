@@ -1,3 +1,0 @@
-defaults:
-    - base_config_regularization_encoder    
-l2_mu: 1.0

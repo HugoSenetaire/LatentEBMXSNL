@@ -1,7 +1,0 @@
-defaults :
-  - base_nuts_sampler
-num_samples: 8
-thinning: 20
-warmup_steps: 30
-num_chains_test: 8
-

@@ -1,6 +1,0 @@
-defaults:
-  - base_energy
-network_name: 'energy_mnist'
-activation_name: null
-ndf: 200
-
